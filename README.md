@@ -1,8 +1,8 @@
-# Curb Goblin 3000
+# Curbo
 
 **Serious name:** Sidewalk Surveying and Management Dashboard
 
-Curb Goblin 3000 is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. The product name is intentionally silly; the platform itself is meant to be a practical workspace for inspecting street infrastructure, reviewing spatial data, and coordinating curb accessibility decisions.
+Curbo is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. It is meant to be a practical workspace for inspecting street infrastructure, reviewing spatial data, and coordinating curb accessibility decisions.
 
 ## MVP Goal
 

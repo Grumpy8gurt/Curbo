@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Sidewalk Surveying and Management Dashboard (Curb Goblin 3000) is planned as a geospatial web platform for viewing city infrastructure layers, collecting annotations, evaluating corridors, and eventually assisting curb-cut review from imagery.
+Sidewalk Surveying and Management Dashboard (Curbo) is planned as a geospatial web platform for viewing city infrastructure layers, collecting annotations, evaluating corridors, and eventually assisting curb-cut review from imagery.
 
 ## Component Diagram
 
