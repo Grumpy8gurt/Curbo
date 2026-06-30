@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "hydrant_id": "hy_001",
+        "flow_class": "standard"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0903, 44.0511]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "hydrant_id": "hy_002",
+        "flow_class": "high"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0878, 44.0494]
+      }
+    }
+  ]
+}

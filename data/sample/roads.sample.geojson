@@ -1,0 +1,37 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "road_id": "rd_001",
+        "name": "Willamette Street",
+        "classification": "arterial"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-123.0935, 44.0508],
+          [-123.0912, 44.0516],
+          [-123.0884, 44.0528]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "road_id": "rd_002",
+        "name": "East 11th Avenue",
+        "classification": "collector"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-123.0927, 44.0489],
+          [-123.0899, 44.0490],
+          [-123.0867, 44.0491]
+        ]
+      }
+    }
+  ]
+}

@@ -1,55 +1,44 @@
-# Prerequisites
-*.d
+.DS_Store
+Thumbs.db
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+.env
+.env.local
+.env.*.local
 
-# Linker output
-*.ilk
-*.map
-*.exp
+node_modules/
+dist/
+build/
+.vite/
+coverage/
 
-# Precompiled Headers
-*.gch
-*.pch
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+.venv/
+venv/
+env/
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+.idea/
+.vscode/
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+postgres-data/
+*.sqlite3
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+reports/
+generated-reports/
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+uploads/
+uploaded-images/
 
-# debug information files
-*.dwo
+models/
+checkpoints/
+weights/
+*.ckpt
+*.pt
+*.pth
+
+*.log

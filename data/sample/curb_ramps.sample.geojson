@@ -1,0 +1,41 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ramp_id": "cr_001",
+        "status": "existing",
+        "condition": "good"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0914, 44.0514]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ramp_id": "cr_002",
+        "status": "needs_review",
+        "condition": "unknown"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0888, 44.0526]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ramp_id": "cr_003",
+        "status": "existing",
+        "condition": "fair"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0870, 44.0492]
+      }
+    }
+  ]
+}
