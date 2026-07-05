@@ -16,13 +16,22 @@ services:
       timeout: 5s
       retries: 5
 
-  # backend:
-  #   build: ./backend
-  #   ports:
-  #     - "${BACKEND_PORT:-8000}:8000"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  backend:
+    build: ./backend
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ssm}
+      POSTGRES_USER: ${POSTGRES_USER:-ssm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ssm_password}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      UPLOAD_DIR: ${UPLOAD_DIR:-uploads}
+      REPORT_DIR: ${REPORT_DIR:-generated_reports}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # frontend:
   #   build: ./frontend

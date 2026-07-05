@@ -1,0 +1,1 @@
+"""Curbo backend application package."""
