@@ -1,6 +1,6 @@
 # API Contract
 
-This document reflects the current MVP integration contract. The frontend’s existing fetch layer is treated as the canonical client contract, and the backend now implements that shape directly.
+This document reflects the current verified MVP integration contract.
 
 ## Backend Routes
 
@@ -23,6 +23,14 @@ This document reflects the current MVP integration contract. The frontend’s ex
 - Response: GeoJSON `FeatureCollection`
 
 ### `GET /api/layers/hydrants`
+
+- Response: GeoJSON `FeatureCollection`
+
+### `GET /api/layers/annotations`
+
+- Response: GeoJSON `FeatureCollection`
+
+### `GET /api/layers/detections`
 
 - Response: GeoJSON `FeatureCollection`
 
@@ -97,8 +105,8 @@ This document reflects the current MVP integration contract. The frontend’s ex
   "corridorId": "cor_rd_001",
   "roadId": "rd_001",
   "name": "Willamette Street",
-  "knownCurbRamps": 3,
-  "possibleMissingCurbCuts": 3,
+  "knownCurbRamps": 2,
+  "possibleMissingCurbCuts": 2,
   "hydrantsNearby": 1,
   "busStopsNearby": 1,
   "parkingConflicts": 2,
@@ -111,7 +119,7 @@ This document reflects the current MVP integration contract. The frontend’s ex
 
 ### `POST /api/uploads/images`
 
-- Request: `multipart/form-data` with field `image`
+- Request: `multipart/form-data` with field `image` or `file`
 - Response:
 
 ```json
@@ -136,7 +144,7 @@ This document reflects the current MVP integration contract. The frontend’s ex
 }
 ```
 
-- Response:
+- Response: one detection `Feature`
 
 ```json
 {
@@ -144,12 +152,12 @@ This document reflects the current MVP integration contract. The frontend’s ex
   "id": "det_003",
   "properties": {
     "detection_id": "det_003",
-    "label": "Possible Curb Cut",
-    "confidence": 0.72,
+    "label": "possible_curb_cut",
+    "confidence": 0.71,
     "review_status": "pending",
     "upload_id": "upl_001",
-    "source": "mock-v0.1",
-    "bbox": [96, 72, 232, 188]
+    "source": "ml-service",
+    "bbox": [125, 126, 195, 162]
   },
   "geometry": {
     "type": "Point",
@@ -158,7 +166,7 @@ This document reflects the current MVP integration contract. The frontend’s ex
 }
 ```
 
-### `PATCH /api/detections/{detection_id}`
+### `PATCH /api/detection/{detection_id}`
 
 - Request:
 
@@ -170,8 +178,13 @@ This document reflects the current MVP integration contract. The frontend’s ex
 
 - Response: one detection `Feature`
 
+### `PATCH /api/detections/{detection_id}`
+
+- Compatibility alias for the same detection update behavior
+
 ### `POST /api/reports/corridor`
 
+- Accepts `corridor_id`, `road_id`, or `roadId`
 - Request:
 
 ```json
@@ -219,8 +232,8 @@ This document reflects the current MVP integration contract. The frontend’s ex
   "detections": [
     {
       "label": "possible_curb_cut",
-      "confidence": 0.72,
-      "bbox": [96, 72, 232, 188],
+      "confidence": 0.71,
+      "bbox": [125, 126, 195, 162],
       "estimated_location": {
         "type": "Point",
         "coordinates": [-123.0868, 44.0521]

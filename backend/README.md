@@ -59,6 +59,7 @@ All routes are registered under `/api`.
 - `POST /api/uploads/images`
 - `GET /api/detection/curb-cuts`
 - `POST /api/detection/curb-cuts`
+- `PATCH /api/detection/{detection_id}`
 - `PATCH /api/detections/{detection_id}`
 - `POST /api/reports/corridor`
 - `GET /api/reports/{report_id}/download`
@@ -83,10 +84,11 @@ All routes are registered under `/api`.
 - `GET /api/annotations` returns a GeoJSON `FeatureCollection` because the frontend stores annotations as map features.
 - `POST /api/annotations` accepts the frontend draft shape `{ annotationType, description, latitude, longitude }`.
 - `POST /api/corridors/analyze` accepts `{ roadId }` and returns the current `CorridorSummary` shape used by the React app.
-- `POST /api/uploads/images` accepts multipart field `image` and returns `{ uploadId, filename, status }`.
+- `POST /api/uploads/images` accepts multipart field `image` or `file` and returns `{ uploadId, filename, status }`.
 - `GET /api/detection/curb-cuts` returns the detection layer as a GeoJSON `FeatureCollection`.
-- `POST /api/detection/curb-cuts` accepts `{ upload_id }` and returns a single detection `Feature`.
-- `POST /api/reports/corridor` accepts `{ corridor_id, format }` and returns the current `CorridorReportResult` shape.
+- `POST /api/detection/curb-cuts` accepts `{ upload_id }` or `{ image_id }` and returns a single detection `Feature`.
+- Detection review updates are available at both `PATCH /api/detection/{id}` and `PATCH /api/detections/{id}` for compatibility.
+- `POST /api/reports/corridor` accepts `{ corridor_id, format }` or `{ roadId, format }` and returns the current `CorridorReportResult` shape.
 - CORS is enabled for `http://localhost:5173` and common local development origins.
 
 ## ML Integration Notes

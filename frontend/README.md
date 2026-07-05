@@ -42,6 +42,6 @@ When `VITE_USE_MOCK_API=false`, the frontend expects:
 - `POST /api/corridors/analyze` to accept `{ roadId }`
 - `POST /api/uploads/images` to accept multipart field `image`
 - `GET /api/detection/curb-cuts` to return a detection `FeatureCollection`
-- `POST /api/detection/curb-cuts` to accept `{ upload_id }` and return one detection `Feature`
-- `PATCH /api/detections/{detectionId}` to update review state
-- `POST /api/reports/corridor` to accept `{ corridor_id, format }`
+- `POST /api/detection/curb-cuts` to accept `{ upload_id }` or `{ image_id }` and return one detection `Feature`
+- `PATCH /api/detection/{detectionId}` or `PATCH /api/detections/{detectionId}` to update review state
+- `POST /api/reports/corridor` to accept `{ roadId, format }` or `{ corridor_id, format }`

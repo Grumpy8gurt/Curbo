@@ -24,6 +24,6 @@ docker run --rm -p 9000:9000 curbo-ml
 - `GET /health`
 - `POST /detect`
 
-`POST /detect` accepts `multipart/form-data` with a `file` field and optional `image_id`, `latitude`, `longitude`, `road_id`, and `source` values.
+`POST /detect` accepts `multipart/form-data` with a `file` field and optional `image_id`, `latitude`, and `longitude` values.
 
 The response is mock data shaped like the future real ML inference result, and the backend forwards that result into frontend-facing detection features.
