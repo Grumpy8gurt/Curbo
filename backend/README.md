@@ -35,6 +35,7 @@ POSTGRES_PORT=5432
 BACKEND_PORT=8000
 UPLOAD_DIR=uploads
 REPORT_DIR=generated_reports
+ML_SERVICE_URL=http://localhost:9000/detect
 ```
 
 Optional:
@@ -56,8 +57,9 @@ All routes are registered under `/api`.
 - `PATCH /api/annotations/{annotation_id}`
 - `POST /api/corridors/analyze`
 - `POST /api/uploads/images`
+- `GET /api/detection/curb-cuts`
 - `POST /api/detection/curb-cuts`
-- `PATCH /api/detection/{detection_id}`
+- `PATCH /api/detections/{detection_id}`
 - `POST /api/reports/corridor`
 - `GET /api/reports/{report_id}/download`
 
@@ -66,7 +68,7 @@ All routes are registered under `/api`.
 - Roads, curb ramps, and hydrants are loaded from the sample GeoJSON under `../data/sample`.
 - Annotations, detections, uploaded image metadata, and generated reports are stored in memory for MVP development.
 - Uploaded files are written to the local `uploads/` directory.
-- Detection results come from a mock detection service that is shaped to later call an ML service at `http://localhost:9000/detect`.
+- Detection requests are forwarded to the ML service at `ML_SERVICE_URL` when it is available, with a backend fallback if the ML service is offline during local development.
 - Corridor analysis uses lightweight spatial heuristics and bbox checks instead of real PostGIS buffering.
 
 ## Database Status
@@ -78,13 +80,18 @@ All routes are registered under `/api`.
 ## Frontend Integration Notes
 
 - Layer endpoints return GeoJSON `FeatureCollection` payloads.
-- `GET /api/annotations` returns annotation records, while `GET /api/layers/annotations` returns those same records as a map layer.
-- The frontend functions `getRoads()`, `getCurbRamps()`, `getHydrants()`, `getAnnotations()`, `createAnnotation(annotation)`, `analyzeCorridor(roadId)`, `uploadImage(file)`, `runCurbCutDetection(imageId)`, and `generateCorridorReport(roadId)` map directly to the implemented endpoints.
+- `GET /api/annotations` returns a GeoJSON `FeatureCollection` because the frontend stores annotations as map features.
+- `POST /api/annotations` accepts the frontend draft shape `{ annotationType, description, latitude, longitude }`.
+- `POST /api/corridors/analyze` accepts `{ roadId }` and returns the current `CorridorSummary` shape used by the React app.
+- `POST /api/uploads/images` accepts multipart field `image` and returns `{ uploadId, filename, status }`.
+- `GET /api/detection/curb-cuts` returns the detection layer as a GeoJSON `FeatureCollection`.
+- `POST /api/detection/curb-cuts` accepts `{ upload_id }` and returns a single detection `Feature`.
+- `POST /api/reports/corridor` accepts `{ corridor_id, format }` and returns the current `CorridorReportResult` shape.
 - CORS is enabled for `http://localhost:5173` and common local development origins.
 
 ## ML Integration Notes
 
-The ML agent does not need to change the API shape right away. The cleanest upgrade path is to replace the mock logic inside `app/services/detection_service.py` with a real request to the ML service while keeping the existing request and response schema stable.
+The backend now calls the ML service through `app/services/detection_service.py` using multipart upload to `/detect`. If the ML service is down, the backend falls back to a local mock detection so the frontend remains usable.
 
 ## Tests
 

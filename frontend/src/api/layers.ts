@@ -46,8 +46,23 @@ export async function getDetections(): Promise<DetectionFeatureCollection> {
     return resolveMock(getMockDetections());
   }
 
-  const response = await fetch(apiUrl("/api/detection/curb-cuts"));
-  return response.json();
+  const response = await fetch(apiUrl("/api/layers/detections"));
+  const payload = await response.json();
+
+  return {
+    type: "FeatureCollection",
+    features: payload.features.map((feature: any) => ({
+      ...feature,
+      properties: {
+        detection_id: feature.properties.detection_id ?? feature.properties.id,
+        label: feature.properties.label,
+        confidence: feature.properties.confidence,
+        review_status: feature.properties.review_status,
+        upload_id: feature.properties.upload_id ?? feature.properties.image_id,
+        source: feature.properties.source ?? "backend"
+      }
+    }))
+  };
 }
 
 export async function getPlaceholderLayer(): Promise<PlaceholderFeatureCollection> {

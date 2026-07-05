@@ -1,199 +1,232 @@
-# Planned API Contract
+# API Contract
 
-This document defines the intended interface for the initial backend. These endpoints are planned only and are not implemented yet.
+This document reflects the current MVP integration contract. The frontend’s existing fetch layer is treated as the canonical client contract, and the backend now implements that shape directly.
 
-## `GET /api/health`
+## Backend Routes
 
-- Purpose: Confirm backend availability and basic dependency readiness.
-- Request shape: No body.
-- Response shape:
+### `GET /api/health`
 
 ```json
 {
   "status": "ok",
-  "service": "backend",
-  "version": "0.1.0"
+  "service": "curbo-backend"
 }
 ```
 
-## `GET /api/layers/roads`
+### `GET /api/layers/roads`
 
-- Purpose: Return road centerline data as GeoJSON.
-- Request shape: Optional query params for bbox, corridor id, or pagination later.
-- Response shape:
+- Response: GeoJSON `FeatureCollection`
+- Road ids use the sample-data shape, for example `rd_001`
+
+### `GET /api/layers/curb-ramps`
+
+- Response: GeoJSON `FeatureCollection`
+
+### `GET /api/layers/hydrants`
+
+- Response: GeoJSON `FeatureCollection`
+
+### `GET /api/annotations`
+
+- Purpose: return annotations in the same GeoJSON feature format the frontend stores in local state
+- Response:
 
 ```json
 {
   "type": "FeatureCollection",
-  "features": []
-}
-```
-
-## `GET /api/layers/curb-ramps`
-
-- Purpose: Return curb ramp point features as GeoJSON.
-- Request shape: Optional query params for bbox, status, or corridor filters later.
-- Response shape:
-
-```json
-{
-  "type": "FeatureCollection",
-  "features": []
-}
-```
-
-## `GET /api/layers/hydrants`
-
-- Purpose: Return hydrant point features for map display and proximity analysis.
-- Request shape: Optional query params for bbox or corridor filters later.
-- Response shape:
-
-```json
-{
-  "type": "FeatureCollection",
-  "features": []
-}
-```
-
-## `GET /api/annotations`
-
-- Purpose: List user-created annotations for map display.
-- Request shape: Optional query params for bbox, author, annotation type, or corridor.
-- Response shape:
-
-```json
-{
-  "items": [
+  "features": [
     {
-      "id": "ann_123",
-      "type": "note",
+      "type": "Feature",
+      "id": "ann_001",
+      "properties": {
+        "annotation_id": "ann_001",
+        "annotation_type": "missing curb cut",
+        "description": "Northwest corner slope feels absent during field review.",
+        "status": "pending",
+        "source": "planner",
+        "created_at": "2026-07-05T15:00:00+00:00"
+      },
       "geometry": {
         "type": "Point",
-        "coordinates": [-123.0, 44.0]
-      },
-      "properties": {
-        "title": "Example annotation",
-        "description": "Planner note"
+        "coordinates": [-123.0894, 44.0519]
       }
     }
   ]
 }
 ```
 
-## `POST /api/annotations`
+### `POST /api/annotations`
 
-- Purpose: Create a new annotation tied to a point, line, or polygon geometry.
-- Request shape:
+- Request:
 
 ```json
 {
-  "type": "note",
-  "geometry": {
-    "type": "Point",
-    "coordinates": [-123.0, 44.0]
-  },
-  "properties": {
-    "title": "Missing ramp",
-    "description": "Needs field review"
-  }
+  "annotationType": "missing curb cut",
+  "description": "Potential curb issue at the corner.",
+  "latitude": 44.0515,
+  "longitude": -123.091
 }
 ```
 
-- Response shape:
+- Response: one annotation `Feature`
+
+### `PATCH /api/annotations/{annotation_id}`
+
+- Request:
 
 ```json
 {
-  "id": "ann_123",
-  "created_at": "2026-06-29T00:00:00Z"
+  "status": "reviewed"
 }
 ```
 
-## `POST /api/corridors/analyze`
+### `POST /api/corridors/analyze`
 
-- Purpose: Run a corridor summary analysis across one or more selected geometries.
-- Request shape:
+- Request:
 
 ```json
 {
-  "name": "Downtown segment",
-  "geometry": {
-    "type": "LineString",
-    "coordinates": [
-      [-123.091, 44.051],
-      [-123.085, 44.053]
-    ]
-  },
-  "buffer_meters": 25
+  "roadId": "rd_001"
 }
 ```
 
-- Response shape:
+- Response:
 
 ```json
 {
-  "corridor_id": "cor_123",
-  "summary": {
-    "road_segments": 0,
-    "curb_ramps": 0,
-    "hydrants": 0
-  }
+  "corridorId": "cor_rd_001",
+  "roadId": "rd_001",
+  "name": "Willamette Street",
+  "knownCurbRamps": 3,
+  "possibleMissingCurbCuts": 3,
+  "hydrantsNearby": 1,
+  "busStopsNearby": 1,
+  "parkingConflicts": 2,
+  "bikeLaneFeasibility": "Medium",
+  "planningNotes": [
+    "Possible missing curb cuts near the selected corridor should be field-checked."
+  ]
 }
 ```
 
-## `POST /api/uploads/images`
+### `POST /api/uploads/images`
 
-- Purpose: Accept image uploads for future detection or manual review workflows.
-- Request shape: `multipart/form-data` with image file plus optional metadata fields.
-- Response shape:
+- Request: `multipart/form-data` with field `image`
+- Response:
 
 ```json
 {
-  "upload_id": "upl_123",
+  "uploadId": "upl_001",
   "filename": "street-view.jpg",
   "status": "stored"
 }
 ```
 
-## `POST /api/detection/curb-cuts`
+### `GET /api/detection/curb-cuts`
 
-- Purpose: Trigger curb-cut detection on an uploaded image or referenced image set.
-- Request shape:
+- Purpose: return all detections as a map-ready GeoJSON `FeatureCollection`
+
+### `POST /api/detection/curb-cuts`
+
+- Request:
 
 ```json
 {
-  "upload_id": "upl_123",
-  "mode": "mock"
+  "upload_id": "upl_001"
 }
 ```
 
-- Response shape:
+- Response:
 
 ```json
 {
-  "detection_id": "det_123",
-  "status": "queued",
-  "mode": "mock"
+  "type": "Feature",
+  "id": "det_003",
+  "properties": {
+    "detection_id": "det_003",
+    "label": "Possible Curb Cut",
+    "confidence": 0.72,
+    "review_status": "pending",
+    "upload_id": "upl_001",
+    "source": "mock-v0.1",
+    "bbox": [96, 72, 232, 188]
+  },
+  "geometry": {
+    "type": "Point",
+    "coordinates": [-123.0868, 44.0521]
+  }
 }
 ```
 
-## `POST /api/reports/corridor`
+### `PATCH /api/detections/{detection_id}`
 
-- Purpose: Generate or queue a corridor report artifact.
-- Request shape:
+- Request:
 
 ```json
 {
-  "corridor_id": "cor_123",
+  "review_status": "confirmed"
+}
+```
+
+- Response: one detection `Feature`
+
+### `POST /api/reports/corridor`
+
+- Request:
+
+```json
+{
+  "corridor_id": "rd_001",
   "format": "html"
 }
 ```
 
-- Response shape:
+- Response:
 
 ```json
 {
-  "report_id": "rep_123",
-  "status": "queued",
-  "format": "html"
+  "reportId": "rep_001",
+  "roadId": "rd_001",
+  "downloadUrl": "/api/reports/rep_001/download",
+  "summary": "Willamette Street corridor report queued successfully. Mock export includes counts, notes, and detection review status."
+}
+```
+
+### `GET /api/reports/{reportId}/download`
+
+- Purpose: download the generated HTML report
+
+## ML Routes
+
+### `GET /health`
+
+```json
+{
+  "status": "ok",
+  "service": "curbo-ml"
+}
+```
+
+### `POST /detect`
+
+- Request: `multipart/form-data` with `file` plus optional `image_id`, `latitude`, `longitude`, `road_id`, and `source`
+- Response:
+
+```json
+{
+  "image_id": "upl_001",
+  "model_version": "mock-v0.1",
+  "detections": [
+    {
+      "label": "possible_curb_cut",
+      "confidence": 0.72,
+      "bbox": [96, 72, 232, 188],
+      "estimated_location": {
+        "type": "Point",
+        "coordinates": [-123.0868, 44.0521]
+      },
+      "review_status": "pending"
+    }
+  ]
 }
 ```

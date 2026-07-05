@@ -7,8 +7,9 @@ export interface DetectionProperties {
   label: string;
   confidence: number;
   review_status: DetectionReviewStatus;
-  source: "mock-model";
+  source: string;
   upload_id?: string;
+  bbox?: [number, number, number, number];
 }
 
 export type DetectionFeature = Feature<DetectionProperties, PointGeometry>;

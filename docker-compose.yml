@@ -27,23 +27,26 @@ services:
       BACKEND_PORT: ${BACKEND_PORT:-8000}
       UPLOAD_DIR: ${UPLOAD_DIR:-uploads}
       REPORT_DIR: ${REPORT_DIR:-generated_reports}
+      ML_SERVICE_URL: http://ml:9000/detect
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      ml:
+        condition: service_started
+
+  ml:
+    build: ./ml
+    environment:
+      ML_PORT: ${ML_PORT:-9000}
+    ports:
+      - "${ML_PORT:-9000}:9000"
 
   # frontend:
   #   build: ./frontend
   #   ports:
   #     - "${FRONTEND_PORT:-5173}:5173"
-  #   depends_on:
-  #     - backend
-
-  # ml:
-  #   build: ./ml
-  #   ports:
-  #     - "${ML_PORT:-9000}:9000"
   #   depends_on:
   #     - backend
 

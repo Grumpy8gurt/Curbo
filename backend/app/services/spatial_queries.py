@@ -101,23 +101,18 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
     missing_curb_cuts = sum(
         1
         for feature in annotation_features["features"]
-        if feature["properties"].get("type") == "missing_curb_cut"
+        if feature["properties"].get("annotation_type") == "missing curb cut"
     ) + len(detection_features["features"])
-    parking_conflicts = sum(
-        1
-        for feature in annotation_features["features"]
-        if feature["properties"].get("type") == "parking_conflict"
-    )
-    parking_conflicts += 2 if road_id == "road_1" else 1
-    bus_stops = 1 if road_id == "road_1" else 0
+    parking_conflicts = 2 if road_id == "rd_001" else 1
+    bus_stops = 1 if road_id in {"rd_001", "rd_002"} else 0
 
     feasibility_score = 6 - missing_curb_cuts - parking_conflicts - hydrants
     if feasibility_score >= 3:
-        bike_lane_feasibility = "high"
+        bike_lane_feasibility = "High"
     elif feasibility_score >= 1:
-        bike_lane_feasibility = "medium"
+        bike_lane_feasibility = "Medium"
     else:
-        bike_lane_feasibility = "low"
+        bike_lane_feasibility = "Low"
 
     notes = []
     if missing_curb_cuts:
@@ -130,14 +125,14 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         notes.append("No major issues found in mock analysis.")
 
     return CorridorAnalysisResponse(
-        road_id=road_id,
-        road_name=road_properties.get("name", road_id),
-        length_meters=_line_length_meters(road_coordinates),
-        known_curb_ramps=known_curb_ramps,
-        possible_missing_curb_cuts=missing_curb_cuts,
-        hydrants=hydrants,
-        bus_stops=bus_stops,
-        parking_conflicts=parking_conflicts,
-        bike_lane_feasibility=bike_lane_feasibility,
-        notes=notes,
+        corridorId=f"cor_{road_id}",
+        roadId=road_id,
+        name=road_properties.get("name", road_id),
+        knownCurbRamps=known_curb_ramps,
+        possibleMissingCurbCuts=missing_curb_cuts,
+        hydrantsNearby=hydrants,
+        busStopsNearby=bus_stops,
+        parkingConflicts=parking_conflicts,
+        bikeLaneFeasibility=bike_lane_feasibility,
+        planningNotes=notes,
     )

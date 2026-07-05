@@ -15,5 +15,24 @@ export async function analyzeCorridor(roadId: string): Promise<CorridorSummary> 
     body: JSON.stringify({ roadId })
   });
 
-  return response.json();
+  const payload = await response.json();
+
+  if ("corridorId" in payload) {
+    return payload;
+  }
+
+  return {
+    corridorId: payload.road_id,
+    roadId: payload.road_id,
+    name: payload.road_name,
+    knownCurbRamps: payload.known_curb_ramps,
+    possibleMissingCurbCuts: payload.possible_missing_curb_cuts,
+    hydrantsNearby: payload.hydrants,
+    busStopsNearby: payload.bus_stops,
+    parkingConflicts: payload.parking_conflicts,
+    bikeLaneFeasibility:
+      payload.bike_lane_feasibility.charAt(0).toUpperCase() +
+      payload.bike_lane_feasibility.slice(1),
+    planningNotes: payload.notes
+  };
 }

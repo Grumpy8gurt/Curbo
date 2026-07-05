@@ -3,11 +3,11 @@ import { createMockReport } from "./mockData";
 import type { CorridorReportResult } from "../types/reports";
 
 export async function generateCorridorReport(
-  corridorId: string,
+  roadId: string,
   roadName: string
 ): Promise<CorridorReportResult> {
   if (USE_MOCK_API) {
-    return resolveMock(createMockReport(corridorId, roadName), 260);
+    return resolveMock(createMockReport(roadId, roadName), 260);
   }
 
   const response = await fetch(apiUrl("/api/reports/corridor"), {
@@ -15,8 +15,19 @@ export async function generateCorridorReport(
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ corridor_id: corridorId, format: "html" })
+    body: JSON.stringify({ roadId, format: "html" })
   });
 
-  return response.json();
+  const payload = await response.json();
+
+  if ("reportId" in payload) {
+    return payload;
+  }
+
+  return {
+    reportId: payload.report_id,
+    roadId,
+    downloadUrl: payload.download_url,
+    summary: `${roadName} corridor report generated. Download at ${payload.download_url}.`
+  };
 }

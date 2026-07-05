@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.dependencies import get_settings_from_request, get_store
 from app.schemas.uploads import UploadImageResponse
@@ -13,7 +13,8 @@ router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 @router.post("/images", response_model=UploadImageResponse, status_code=201)
 async def upload_image(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
+    image: UploadFile | None = File(default=None),
     latitude: float | None = Form(default=None),
     longitude: float | None = Form(default=None),
     road_id: str | None = Form(default=None),
@@ -21,9 +22,13 @@ async def upload_image(
     store: AppStore = Depends(get_store),
     settings=Depends(get_settings_from_request),
 ):
+    upload_file = image or file
+    if upload_file is None:
+        raise HTTPException(status_code=422, detail="An image file is required")
+
     image_record = store.create_upload(
         {
-            "filename": file.filename,
+            "filename": upload_file.filename,
             "file_path": "",
             "latitude": latitude,
             "longitude": longitude,
@@ -31,14 +36,14 @@ async def upload_image(
             "note": note,
         }
     )
-    suffix = Path(file.filename or "upload.bin").suffix or ".bin"
+    suffix = Path(upload_file.filename or "upload.bin").suffix or ".bin"
     destination = settings.resolved_upload_dir / f"{image_record['id']}{suffix}"
-    file_bytes = await file.read()
+    file_bytes = await upload_file.read()
     destination.write_bytes(file_bytes)
     image_record["file_path"] = str(destination)
-    await file.close()
+    await upload_file.close()
     return {
-        "image_id": image_record["id"],
+        "uploadId": image_record["id"],
         "filename": image_record["filename"],
-        "status": "uploaded",
+        "status": "stored",
     }

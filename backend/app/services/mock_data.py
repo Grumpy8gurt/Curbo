@@ -15,11 +15,13 @@ def _load_geojson(path: Path) -> dict[str, Any]:
 
 def _normalize_road_features(feature_collection: dict[str, Any]) -> dict[str, Any]:
     normalized = deepcopy(feature_collection)
-    for index, feature in enumerate(normalized.get("features", []), start=1):
+    for feature in normalized.get("features", []):
         properties = feature.setdefault("properties", {})
-        road_id = f"road_{index}"
-        properties["id"] = road_id
-        properties["road_id"] = road_id
+        road_id = properties.get("road_id")
+        if road_id is None:
+            road_id = properties.get("id") or "rd_unknown"
+            properties["road_id"] = road_id
+        feature["id"] = road_id
         properties.setdefault("source", "sample")
     return normalized
 
@@ -52,22 +54,22 @@ def build_sample_collections(sample_data_dir: Path) -> dict[str, dict[str, Any]]
 def _default_annotations() -> list[dict[str, Any]]:
     return [
         {
-            "id": "annotation_1",
-            "type": "missing_curb_cut",
-            "description": "Potential missing curb cut at the southeast corner.",
+            "id": "ann_001",
+            "annotation_type": "missing curb cut",
+            "description": "Northwest corner slope feels absent during field review.",
             "status": "pending",
-            "source": "sample",
-            "geometry": {"type": "Point", "coordinates": [-123.091, 44.0515]},
-            "created_at": datetime.now(timezone.utc),
+            "source": "planner",
+            "geometry": {"type": "Point", "coordinates": [-123.0894, 44.0519]},
+            "created_at": datetime(2026, 7, 5, 15, 0, tzinfo=timezone.utc),
         },
         {
-            "id": "annotation_2",
-            "type": "parking_conflict",
-            "description": "On-street parking likely overlaps proposed curb extension.",
+            "id": "ann_002",
+            "annotation_type": "obstruction",
+            "description": "Temporary sign blocks ramp access near the curb return.",
             "status": "pending",
-            "source": "sample",
-            "geometry": {"type": "Point", "coordinates": [-123.0897, 44.0491]},
-            "created_at": datetime.now(timezone.utc),
+            "source": "planner",
+            "geometry": {"type": "Point", "coordinates": [-123.0874, 44.0493]},
+            "created_at": datetime(2026, 7, 5, 15, 10, tzinfo=timezone.utc),
         },
     ]
 
@@ -75,14 +77,26 @@ def _default_annotations() -> list[dict[str, Any]]:
 def _default_detections() -> list[dict[str, Any]]:
     return [
         {
-            "id": "detection_1",
-            "image_id": "img_sample_1",
-            "label": "possible_curb_cut",
-            "confidence": 0.74,
-            "bbox": [64, 72, 210, 180],
-            "estimated_location": {"type": "Point", "coordinates": [-123.0889, 44.0525]},
+            "id": "det_001",
+            "upload_id": "upl_sample_001",
+            "label": "Possible missing curb cut",
+            "confidence": 0.87,
+            "bbox": [96, 72, 232, 188],
+            "estimated_location": {"type": "Point", "coordinates": [-123.0906, 44.0517]},
             "review_status": "pending",
-            "created_at": datetime.now(timezone.utc),
+            "source": "mock-model",
+            "created_at": datetime(2026, 7, 5, 15, 20, tzinfo=timezone.utc),
+        },
+        {
+            "id": "det_002",
+            "upload_id": "upl_sample_002",
+            "label": "Possible curb ramp retrofit",
+            "confidence": 0.71,
+            "bbox": [88, 68, 220, 180],
+            "estimated_location": {"type": "Point", "coordinates": [-123.0872, 44.0496]},
+            "review_status": "confirmed",
+            "source": "mock-model",
+            "created_at": datetime(2026, 7, 5, 15, 25, tzinfo=timezone.utc),
         }
     ]
 
@@ -97,7 +111,7 @@ class AppStore:
     uploaded_images: list[dict[str, Any]] = field(default_factory=list)
     reports: list[dict[str, Any]] = field(default_factory=list)
     counters: dict[str, int] = field(
-        default_factory=lambda: {"annotation": 2, "image": 0, "detection": 1, "report": 0}
+        default_factory=lambda: {"annotation": 2, "image": 0, "detection": 2, "report": 0}
     )
 
     @classmethod
@@ -108,12 +122,12 @@ class AppStore:
     def next_id(self, kind: str) -> str:
         self.counters[kind] += 1
         prefixes = {
-            "annotation": "annotation",
-            "image": "img",
-            "detection": "detection",
-            "report": "report",
+            "annotation": "ann",
+            "image": "upl",
+            "detection": "det",
+            "report": "rep",
         }
-        return f"{prefixes[kind]}_{self.counters[kind]}"
+        return f"{prefixes[kind]}_{self.counters[kind]:03d}"
 
     def get_road_feature(self, road_id: str) -> dict[str, Any] | None:
         for feature in self.roads.get("features", []):
@@ -123,6 +137,21 @@ class AppStore:
 
     def list_annotations(self) -> list[dict[str, Any]]:
         return sorted(self.annotations, key=lambda item: item["created_at"])
+
+    def annotation_to_feature(self, annotation: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "id": annotation["id"],
+            "geometry": annotation["geometry"],
+            "properties": {
+                "annotation_id": annotation["id"],
+                "annotation_type": annotation["annotation_type"],
+                "description": annotation["description"],
+                "status": annotation["status"],
+                "source": annotation["source"],
+                "created_at": annotation["created_at"].isoformat(),
+            },
+        }
 
     def create_annotation(self, payload: dict[str, Any]) -> dict[str, Any]:
         annotation = {
@@ -142,20 +171,7 @@ class AppStore:
         return None
 
     def get_annotations_feature_collection(self) -> dict[str, Any]:
-        features = [
-            {
-                "type": "Feature",
-                "geometry": annotation["geometry"],
-                "properties": {
-                    "id": annotation["id"],
-                    "type": annotation["type"],
-                    "status": annotation["status"],
-                    "source": annotation["source"],
-                    "description": annotation["description"],
-                },
-            }
-            for annotation in self.list_annotations()
-        ]
+        features = [self.annotation_to_feature(annotation) for annotation in self.list_annotations()]
         return {"type": "FeatureCollection", "features": features}
 
     def create_upload(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -169,13 +185,14 @@ class AppStore:
                 return uploaded_image
         return None
 
-    def add_detections(self, image_id: str, detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def add_detections(self, upload_id: str, detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
         stored_detections = []
         for detection in detections:
             stored = {
                 "id": self.next_id("detection"),
-                "image_id": image_id,
+                "upload_id": upload_id,
                 "created_at": datetime.now(timezone.utc),
+                "source": detection.get("source", "ml-service"),
                 **detection,
             }
             self.detections.append(stored)
@@ -189,26 +206,30 @@ class AppStore:
                 return detection
         return None
 
+    def detection_to_feature(self, detection: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "type": "Feature",
+            "id": detection["id"],
+            "geometry": detection["estimated_location"]
+            or {"type": "Point", "coordinates": [-123.0868, 44.0521]},
+            "properties": {
+                "detection_id": detection["id"],
+                "label": detection["label"],
+                "confidence": detection["confidence"],
+                "review_status": detection["review_status"],
+                "upload_id": detection.get("upload_id"),
+                "source": detection.get("source", "mock-detection"),
+                "bbox": detection.get("bbox"),
+            },
+        }
+
     def get_detections_feature_collection(self) -> dict[str, Any]:
-        features = [
-            {
-                "type": "Feature",
-                "geometry": detection["estimated_location"],
-                "properties": {
-                    "id": detection["id"],
-                    "label": detection["label"],
-                    "confidence": detection["confidence"],
-                    "review_status": detection["review_status"],
-                    "image_id": detection["image_id"],
-                    "source": "mock-detection",
-                },
-            }
-            for detection in self.detections
-        ]
+        features = [self.detection_to_feature(detection) for detection in self.detections]
         return {"type": "FeatureCollection", "features": features}
 
     def create_report(self, payload: dict[str, Any]) -> dict[str, Any]:
-        report = {"id": self.next_id("report"), **payload}
+        report = payload.copy()
+        report.setdefault("id", self.next_id("report"))
         self.reports.append(report)
         return report
 

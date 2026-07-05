@@ -356,11 +356,11 @@ export function updateMockDetectionStatus(
 
 export function createMockReport(corridorId: string, roadName: string): CorridorReportResult {
   reportCounter += 1;
+  const reportId = `rep_${String(reportCounter).padStart(3, "0")}`;
   return {
-    reportId: `rep_${String(reportCounter).padStart(3, "0")}`,
-    corridorId,
-    format: "html",
-    status: "ready",
+    reportId,
+    roadId: corridorId,
+    downloadUrl: `/api/reports/${reportId}/download`,
     summary: `${roadName} corridor report queued successfully. Mock export includes counts, notes, and detection review status.`
   };
 }

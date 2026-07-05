@@ -2,57 +2,76 @@
 
 **Serious name:** Sidewalk Surveying and Management Dashboard
 
-Curbo is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. It is meant to be a practical workspace for inspecting street infrastructure, reviewing spatial data, and coordinating curb accessibility decisions.
+Curbo is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. It visualizes roads, curb ramps, hydrants, planner annotations, corridor summaries, uploaded street images, and mock AI curb-cut detections.
 
-## MVP Goal
+## What The App Does
 
-The MVP is a map-first dashboard that can display street infrastructure layers, support basic spatial queries, store planner annotations, accept street-level image uploads, run a mocked curb-cut detection workflow, and generate corridor summary outputs later in the roadmap.
-
-## High-Level Architecture
-
-- `frontend/`: React + TypeScript map dashboard and operator workflows
-- `backend/`: FastAPI application exposing GeoJSON and annotation APIs
-- `ml/`: Python-based curb-cut detection service, initially mockable
-- `postgres` + PostGIS: spatial data persistence and query engine
-- `data/`: sample GeoJSON and future import datasets
-- `docs/`: architecture, API planning, data model notes, and agent coordination
-
-## Expected Tech Stack
-
-- Frontend: React, TypeScript, modern mapping library
-- Backend: FastAPI, Pydantic, SQLAlchemy or equivalent
-- Database: PostgreSQL with PostGIS
-- ML: Python inference service with mocked-first integration
-- Local development: Docker Compose
-- Data interchange: GeoJSON
+- `frontend/`: React + TypeScript dashboard with a MapLibre planning UI
+- `backend/`: FastAPI API serving GeoJSON layers, annotations, uploads, detections, and corridor reports
+- `ml/`: FastAPI mock detection service with a stable `/detect` interface for future model integration
+- `postgres`: PostGIS-ready local database for the long-term architecture
 
 ## Local Development
 
-The application code is not implemented yet, but the repo is prepared for future agents.
-
 1. Copy `.env.example` to `.env`.
-2. Review `docker-compose.yml`.
-3. Run `./scripts/setup.sh` to start the PostGIS database container.
-4. Future agents will add service-specific startup commands for `frontend/`, `backend/`, and `ml/`.
+2. Start Postgres:
+
+```bash
+docker compose up -d postgres
+```
+
+3. Start the backend:
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+4. Start the ML service:
+
+```bash
+cd ml
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 9000
+```
+
+5. Start the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+6. To exercise the live backend from the frontend, set `VITE_USE_MOCK_API=false` in the frontend environment.
+
+## What Is Mocked
+
+- Backend map layers load from `data/sample/*.geojson`
+- Backend annotations, uploads, detections, and report metadata are stored in memory for MVP integration work
+- ML detections are mocked but returned in a stable response shape
+- Frontend runs in local mock mode by default via `VITE_USE_MOCK_API=true`
+- Set `VITE_USE_MOCK_API=false` to exercise the live backend API that now matches the frontend fetch contract
+
+## What Remains Future Work
+
+- Real PostGIS-backed persistence and spatial analysis
+- Replacing mock ML detections with model inference
+- Richer report export and report assets
+- More complete infrastructure layers such as parcels, bike lanes, and bus stops
+- Full end-to-end Dockerized frontend workflow
 
 ## Repository Layout
 
-- `docs/`: planning and integration documents
-- `frontend/`: future React app
-- `backend/`: future FastAPI service
-- `ml/`: future detection service
-- `data/`: sample GeoJSON and later import-ready datasets
-- `scripts/`: bootstrap and developer utility scripts
-- `tests/`: cross-project and integration test home
-
-## Agent Workflow Expectations
-
-This repository starts as a clean monorepo scaffold. The intended workflow is:
-
-- Initial Repository Agent establishes structure, shared docs, and sample data.
-- Frontend Agent builds the dashboard UI and map interactions.
-- Backend Agent builds API endpoints, persistence, and spatial services.
-- ML Agent builds the curb-cut detection service and mockable integration boundary.
-- Supervisor/Integration Agent connects everything, resolves contract drift, and validates end-to-end behavior.
-
-Each agent should respect the documented boundaries and avoid overwriting unrelated work unless coordination requires it.
+- `docs/`: architecture, API contract, data model, and agent notes
+- `frontend/`: Vite + React planning dashboard
+- `backend/`: FastAPI MVP API
+- `ml/`: FastAPI mock ML service
+- `data/`: sample GeoJSON and future import data
+- `scripts/`: local setup helpers
+- `tests/`: integration reports and future shared validation

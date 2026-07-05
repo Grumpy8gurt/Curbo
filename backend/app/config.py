@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     upload_dir: str = "uploads"
     report_dir: str = "generated_reports"
+    ml_service_url: str = "http://localhost:9000/detect"
     database_url: str | None = None
     cors_origins: list[str] = Field(
         default_factory=lambda: [

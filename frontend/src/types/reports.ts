@@ -1,7 +1,6 @@
 export interface CorridorReportResult {
   reportId: string;
-  corridorId: string;
-  format: "html";
-  status: "ready";
+  roadId: string;
+  downloadUrl: string;
   summary: string;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createAnnotation, getAnnotations } from "./api/annotations";
 import {
   runCurbCutDetection,
@@ -74,7 +74,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [corridorLoading, setCorridorLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
-  const [activityMessage, setActivityMessage] = useState("Loading mock planning layers...");
+  const [activityMessage, setActivityMessage] = useState("Loading planning layers...");
 
   useEffect(() => {
     async function loadData() {
@@ -110,7 +110,7 @@ export default function App() {
         setBusStops(nextBusStops);
         setParkingZones(nextParkingZones);
         setParcels(nextParcels);
-        setActivityMessage("Mock data loaded. Ready for corridor review.");
+        setActivityMessage("Planning layers loaded. Ready for corridor review.");
       } finally {
         setLoading(false);
       }
@@ -118,17 +118,6 @@ export default function App() {
 
     void loadData();
   }, []);
-
-  const selectedRoadName = useMemo(() => {
-    if (!selectedRoadId) {
-      return null;
-    }
-
-    return (
-      roads.features.find((feature) => feature.properties.road_id === selectedRoadId)?.properties
-        .name ?? null
-    );
-  }, [roads.features, selectedRoadId]);
 
   async function handleRoadSelection(roadId: string) {
     setSelectedRoadId(roadId || null);
@@ -140,7 +129,7 @@ export default function App() {
     }
 
     setCorridorLoading(true);
-    setActivityMessage("Running corridor analysis prototype...");
+    setActivityMessage("Running corridor analysis...");
 
     try {
       const summary = await analyzeCorridor(roadId);
@@ -178,7 +167,7 @@ export default function App() {
   }
 
   async function handleUpload(file: File) {
-    setActivityMessage(`Uploading ${file.name} to the mock detection pipeline...`);
+    setActivityMessage(`Uploading ${file.name} to the detection pipeline...`);
     const upload = await uploadImage(file);
     const detection = await runCurbCutDetection(upload.uploadId);
     setDetections((current) => ({
@@ -195,7 +184,7 @@ export default function App() {
       confidence: detection.properties.confidence,
       coordinates: detection.geometry.coordinates
     });
-    setActivityMessage(`Mock detection created from ${upload.filename}.`);
+    setActivityMessage(`Detection created from ${upload.filename}.`);
   }
 
   async function handleDetectionReview(
@@ -232,11 +221,11 @@ export default function App() {
     }
 
     setReportLoading(true);
-    setActivityMessage(`Generating a mock report for ${corridorSummary.name}...`);
+    setActivityMessage(`Generating a corridor report for ${corridorSummary.name}...`);
 
     try {
       const result = await generateCorridorReport(
-        corridorSummary.corridorId,
+        corridorSummary.roadId,
         corridorSummary.name
       );
       setReportResult(result);

@@ -19,41 +19,31 @@ def create_corridor_report(
     settings=Depends(get_settings_from_request),
 ):
     analysis = analyze_corridor(store, payload.road_id, buffer_meters=30)
-    summary = {
-        "road_id": analysis.road_id,
-        "road_name": analysis.road_name,
-        "bike_lane_feasibility": analysis.bike_lane_feasibility,
-        "main_constraints": [
-            constraint
-            for constraint, present in [
-                ("missing curb cuts", analysis.possible_missing_curb_cuts > 0),
-                ("hydrants", analysis.hydrants > 0),
-                ("parking conflicts", analysis.parking_conflicts > 0),
-            ]
-            if present
-        ],
-        "notes": analysis.notes,
-    }
+    summary_message = (
+        f"{analysis.name} corridor report queued successfully. "
+        "Mock export includes counts, notes, and detection review status."
+    )
     report_id = store.next_id("report")
     report_path = generate_corridor_report(
         settings.resolved_report_dir,
         report_id=report_id,
-        summary=summary,
-        include_layers=payload.include_layers,
+        summary=analysis.model_dump(),
+        include_layers=["roads", "curbRamps", "hydrants", "annotations", "detections"],
     )
-    store.reports.append(
+    store.create_report(
         {
             "id": report_id,
             "road_id": payload.road_id,
-            "include_layers": payload.include_layers,
-            "summary": summary,
+            "format": payload.format,
+            "summary": summary_message,
             "download_path": str(report_path),
         }
     )
     return {
-        "report_id": report_id,
-        "download_url": f"/api/reports/{report_id}/download",
-        "summary": summary,
+        "reportId": report_id,
+        "roadId": payload.road_id,
+        "downloadUrl": f"/api/reports/{report_id}/download",
+        "summary": summary_message,
     }
 
 
