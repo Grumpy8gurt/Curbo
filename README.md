@@ -1,6 +1,6 @@
 # Curbo
 
-**Serious name:** Sidewalk Surveying and Management Dashboard
+Sidewalk Surveying and Management Dashboard
 
 Curbo is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. It visualizes roads, curb ramps, hydrants, planner annotations, corridor summaries, uploaded street images, and mock AI curb-cut detections.
 
