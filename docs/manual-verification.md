@@ -16,13 +16,9 @@
    - `PATCH /api/detection/{detection_id}`
    - `POST /api/reports/corridor`
    - `GET /api/reports/{report_id}/download`
-7. Ran ML tests with `cd ml && pytest`.
-8. Started the ML service with `uvicorn app.main:app --host 127.0.0.1 --port 9000`.
-9. Ran ML smoke checks for:
-   - `GET /health`
-   - `POST /detect`
-10. Validated Docker Compose syntax with `docker compose config`.
-11. Attempted `docker compose up -d postgres` and `docker compose ps`.
+7. Validated Docker Compose syntax with `docker compose config`.
+8. Attempted `docker compose up -d postgres` and `docker compose ps`.
+9. Visited site at local host 127.0.0.1
 
 ## Expected Results
 
@@ -39,20 +35,20 @@
 - Backend tests succeeded: 9 tests passed.
 - Backend startup succeeded after small integration fixes.
 - Backend smoke checks returned successful responses for health, layers, annotation creation, upload, detection, detection update, report creation, and report download.
-- ML tests succeeded: 4 tests passed.
-- ML startup succeeded.
 - ML `/detect` returned mock detection data with `label`, `confidence`, `bbox`, `estimated_location`, and `review_status`.
 - Sample GeoJSON validation succeeded.
 - `docker compose config` succeeded.
 - Docker runtime startup could not be fully verified in this environment because the Docker daemon was not running.
 
+
+
 ## Issues Found
 
 - The frontend map currently depends on a remote MapLibre demo style URL, which can cause the map to appear blank if that remote style is unavailable.
-- The frontend defaults to mock mode, so live backend behavior is not the default demo path unless `VITE_USE_MOCK_API=false` is set.
 - Docker Compose runtime behavior remains unverified until Docker Desktop or the Docker daemon is running locally.
 - The frontend production bundle is relatively large due to MapLibre in the main bundle.
+- The ML layer is looking more complicated than I orginally thought, considering descaling the project to avoid ml use
 
 ## Engineering Conclusion
 
-The Sprint 2 prototype is functional as a mock-first client/server feature slice. It demonstrates a working dashboard, a backend API, and an ML service boundary, and the main code paths were verified through builds, tests, and targeted smoke checks. The largest remaining risks are operational rather than architectural: live browser verification with the backend enabled, Docker runtime verification, and the current external dependency on the MapLibre demo basemap.
+The Sprint 2 prototype is functional as a mock-first client/server feature slice. It demonstrates a working dashboard, a backend API, and the main code paths were verified through builds, tests, and targeted smoke checks. The largest remaining risks are operational rather than architectural: live browser verification with the backend enabled, Docker runtime verification, and the current external dependency on the MapLibre demo basemap.

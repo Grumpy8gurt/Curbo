@@ -21,6 +21,8 @@ I accepted the suggestion to add compatibility handling between frontend and bac
 
 I postponed replacing the mock-first data flow with full Postgres/PostGIS persistence. That would be valuable later, but it was too large for the current Sprint 2 feature slice and would have distracted from demonstrating one working client/server interaction.
 
+I also decided against building out a more fleshed-out ML layer at this stage. The current mock ML boundary is enough to demonstrate how the system would connect to detection logic later, and expanding that part further now would likely push the project beyond a realistic Sprint 2 scope.
+
 ## One Verification Step After Review
 
 After the AI-assisted review surfaced integration drift, I verified the result by running:
@@ -30,6 +32,8 @@ After the AI-assisted review surfaced integration drift, I verified the result b
 - `cd ml && pytest`
 
 I also confirmed that both backend and ML services could start with `uvicorn`, and I used targeted smoke checks for key backend and ML routes.
+
+Running the prototype with docker showed that the service doesn't really work at the current moment, the map doesn't render, a lot of the text is redundant, and the back  
 
 ## Final Responsibility
 

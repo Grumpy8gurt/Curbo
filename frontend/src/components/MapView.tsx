@@ -1,5 +1,9 @@
 import { useEffect, useRef } from "react";
-import maplibregl, { type GeoJSONSource, type Map } from "maplibre-gl";
+import maplibregl, {
+  type GeoJSONSource,
+  type Map,
+  type StyleSpecification
+} from "maplibre-gl";
 import type { AnnotationFeatureCollection } from "../types/annotations";
 import type { DetectionFeatureCollection } from "../types/detections";
 import type { Feature } from "../types/geojson";
@@ -58,6 +62,21 @@ const LAYER_IDS = {
   detections: "detections-layer"
 } satisfies Record<"roads" | "curbRamps" | "hydrants" | "annotations" | "detections", string>;
 
+const LOCAL_MAP_STYLE: StyleSpecification = {
+  version: 8,
+  name: "Curbo local style",
+  sources: {},
+  layers: [
+    {
+      id: "curbo-background",
+      type: "background",
+      paint: {
+        "background-color": "#dbe7de"
+      }
+    }
+  ]
+};
+
 export function MapView({
   roads,
   curbRamps,
@@ -73,6 +92,7 @@ export function MapView({
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
+  const hasFittedBoundsRef = useRef(false);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -81,12 +101,17 @@ export function MapView({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: "https://demotiles.maplibre.org/style.json",
+      style: LOCAL_MAP_STYLE,
       center: [-123.0868, 44.0521],
       zoom: 13
     });
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
+    map.on("error", (event) => {
+      const message =
+        event.error instanceof Error ? event.error.message : "Unknown MapLibre error";
+      console.warn(`MapLibre runtime warning: ${message}`);
+    });
 
     map.on("load", () => {
       addSources(map);
@@ -99,6 +124,7 @@ export function MapView({
     return () => {
       map.remove();
       mapRef.current = null;
+      hasFittedBoundsRef.current = false;
     };
   }, [onFeatureSelect, onRoadSelect]);
 
@@ -117,6 +143,11 @@ export function MapView({
     setSourceData(map, SOURCE_IDS.busStops, placeholders.busStops);
     setSourceData(map, SOURCE_IDS.parkingZones, placeholders.parkingZones);
     setSourceData(map, SOURCE_IDS.parcels, placeholders.parcels);
+
+    if (!hasFittedBoundsRef.current && roads.features.length > 0) {
+      fitMapToRoads(map, roads);
+      hasFittedBoundsRef.current = true;
+    }
   }, [roads, curbRamps, hydrants, annotations, detections, placeholders]);
 
   useEffect(() => {
@@ -299,6 +330,28 @@ function syncVisibility(map: Map, visibility: LayerVisibility) {
     "visibility",
     visibility.detections ? "visible" : "none"
   );
+}
+
+function fitMapToRoads(map: Map, roads: RoadFeatureCollection) {
+  const bounds = new maplibregl.LngLatBounds();
+  let hasCoordinates = false;
+
+  roads.features.forEach((feature) => {
+    feature.geometry.coordinates.forEach((coordinate) => {
+      bounds.extend(coordinate);
+      hasCoordinates = true;
+    });
+  });
+
+  if (!hasCoordinates) {
+    return;
+  }
+
+  map.fitBounds(bounds, {
+    padding: 48,
+    duration: 0,
+    maxZoom: 15
+  });
 }
 
 function emptyCollection() {
