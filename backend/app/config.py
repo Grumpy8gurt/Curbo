@@ -33,7 +33,13 @@ class Settings(BaseSettings):
 
     @property
     def project_root(self) -> Path:
-        return Path(__file__).resolve().parents[2]
+        config_path = Path(__file__).resolve()
+        candidate_roots = [config_path.parents[2], config_path.parents[1], config_path.parents[0]]
+
+        for candidate in candidate_roots:
+            if (candidate / "data" / "sample").exists():
+                return candidate
+        return config_path.parents[2]
 
     @property
     def backend_root(self) -> Path:
@@ -41,7 +47,18 @@ class Settings(BaseSettings):
 
     @property
     def sample_data_dir(self) -> Path:
-        return self.project_root / "data" / "sample"
+        project_sample_dir = self.project_root / "data" / "sample"
+        if project_sample_dir.exists():
+            return project_sample_dir
+
+        fallback_candidates = [
+            self.backend_root.parent / "data" / "sample",
+            self.backend_root / "data" / "sample",
+        ]
+        for candidate in fallback_candidates:
+            if candidate.exists():
+                return candidate
+        return project_sample_dir
 
     @property
     def resolved_upload_dir(self) -> Path:
