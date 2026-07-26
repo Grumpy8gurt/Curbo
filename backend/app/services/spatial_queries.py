@@ -42,8 +42,17 @@ def filter_feature_collection(
             filtered_features.append(feature)
         elif geometry_type == "LineString" and any(_point_within_bbox(point, bbox) for point in coordinates):
             filtered_features.append(feature)
+        elif geometry_type == "MultiLineString" and any(
+            _point_within_bbox(point, bbox)
+            for line in coordinates
+            for point in line
+        ):
+            filtered_features.append(feature)
 
-    return {"type": "FeatureCollection", "features": filtered_features}
+    filtered = {"type": "FeatureCollection", "features": filtered_features}
+    if "metadata" in feature_collection:
+        filtered["metadata"] = feature_collection["metadata"]
+    return filtered
 
 
 def _haversine_meters(first: list[float], second: list[float]) -> float:
@@ -94,6 +103,7 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
 
     known_curb_ramps = _count_near_features(store.curb_ramps, corridor_bbox)
     hydrants = _count_near_features(store.hydrants, corridor_bbox)
+    bike_lanes = _count_near_features(store.bike_lanes, corridor_bbox)
 
     annotation_features = filter_feature_collection(
         store.get_annotations_feature_collection(), corridor_bbox
@@ -104,10 +114,11 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         for feature in annotation_features["features"]
         if feature["properties"].get("annotation_type") == "missing curb cut"
     )
-    parking_conflicts = 2 if road_id == "rd_001" else 1
-    bus_stops = 1 if road_id in {"rd_001", "rd_002"} else 0
+    annotation_count = len(annotation_features["features"])
+    parking_conflicts = 0
+    bus_stops = 0
 
-    feasibility_score = 6 - missing_curb_cuts - parking_conflicts - hydrants
+    feasibility_score = 4 + min(bike_lanes, 2) - missing_curb_cuts - min(hydrants, 2)
     if feasibility_score >= 3:
         bike_lane_feasibility = "High"
     elif feasibility_score >= 1:
@@ -122,8 +133,11 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         notes.append("Hydrant spacing may constrain curbside redesign options.")
     if parking_conflicts:
         notes.append("Parking conflicts should be reviewed before committing to curb changes.")
+    notes.append(
+        "Review sidewalk ramp coverage and hydrant conflicts before corridor redesign."
+    )
     if not notes:
-        notes.append("No major issues found in mock analysis.")
+        notes.append("No major issues found in the cached Eugene layer analysis.")
 
     return CorridorAnalysisResponse(
         corridorId=f"cor_{road_id}",
@@ -132,6 +146,8 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         knownCurbRamps=known_curb_ramps,
         possibleMissingCurbCuts=missing_curb_cuts,
         hydrantsNearby=hydrants,
+        bikeLanesNearby=bike_lanes,
+        userAnnotationsNearby=annotation_count,
         busStopsNearby=bus_stops,
         parkingConflicts=parking_conflicts,
         bikeLaneFeasibility=bike_lane_feasibility,

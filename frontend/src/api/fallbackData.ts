@@ -6,9 +6,9 @@ import type {
 import type { CorridorSummary } from "../types/corridors";
 import type { Position } from "../types/geojson";
 import type {
+  BikeLaneFeatureCollection,
   CurbRampFeatureCollection,
   HydrantFeatureCollection,
-  PlaceholderFeatureCollection,
   RoadFeatureCollection
 } from "../types/layers";
 import type { CorridorReportResult } from "../types/reports";
@@ -121,10 +121,29 @@ const hydrants: HydrantFeatureCollection = {
   ]
 };
 
-const emptyPoints = (): PlaceholderFeatureCollection => ({
+const bikeLanes: BikeLaneFeatureCollection = {
   type: "FeatureCollection",
-  features: []
-});
+  metadata: { status: "sample-fallback", source: "CURBO local fallback" },
+  features: [
+    {
+      type: "Feature",
+      properties: {
+        bike_lane_id: "bike_demo_001",
+        name: "East 11th Avenue",
+        facility_type: "Bike lane",
+        status: "Built"
+      },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-123.0927, 44.0489],
+          [-123.0899, 44.049],
+          [-123.0867, 44.0491]
+        ]
+      }
+    }
+  ]
+};
 
 let annotationCounter = 3;
 let reportCounter = 0;
@@ -155,6 +174,8 @@ const corridorSummaries: Record<string, CorridorSummary> = {
     knownCurbRamps: 8,
     possibleMissingCurbCuts: 2,
     hydrantsNearby: 4,
+    bikeLanesNearby: 1,
+    userAnnotationsNearby: 1,
     busStopsNearby: 1,
     parkingConflicts: 7,
     bikeLaneFeasibility: "Medium",
@@ -170,6 +191,8 @@ const corridorSummaries: Record<string, CorridorSummary> = {
     knownCurbRamps: 5,
     possibleMissingCurbCuts: 1,
     hydrantsNearby: 2,
+    bikeLanesNearby: 1,
+    userAnnotationsNearby: 1,
     busStopsNearby: 1,
     parkingConflicts: 3,
     bikeLaneFeasibility: "High",
@@ -203,27 +226,27 @@ function createAnnotationFeature(
   };
 }
 
-export function getMockRoads(): RoadFeatureCollection {
+export function getFallbackRoads(): RoadFeatureCollection {
   return roads;
 }
 
-export function getMockCurbRamps(): CurbRampFeatureCollection {
+export function getFallbackSidewalkRamps(): CurbRampFeatureCollection {
   return curbRamps;
 }
 
-export function getMockHydrants(): HydrantFeatureCollection {
+export function getFallbackHydrants(): HydrantFeatureCollection {
   return hydrants;
 }
 
-export function getMockAnnotations(): AnnotationFeatureCollection {
+export function getFallbackAnnotations(): AnnotationFeatureCollection {
   return annotations;
 }
 
-export function getMockPlaceholderLayer(): PlaceholderFeatureCollection {
-  return emptyPoints();
+export function getFallbackBikeLanes(): BikeLaneFeatureCollection {
+  return bikeLanes;
 }
 
-export function addMockAnnotation(draft: AnnotationDraft): AnnotationFeature {
+export function addFallbackAnnotation(draft: AnnotationDraft): AnnotationFeature {
   const feature = createAnnotationFeature(draft);
   annotations = {
     ...annotations,
@@ -232,7 +255,7 @@ export function addMockAnnotation(draft: AnnotationDraft): AnnotationFeature {
   return feature;
 }
 
-export function getMockCorridorSummary(roadId: string): CorridorSummary {
+export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
   return (
     corridorSummaries[roadId] ?? {
       corridorId: `cor_${roadId}`,
@@ -241,21 +264,23 @@ export function getMockCorridorSummary(roadId: string): CorridorSummary {
       knownCurbRamps: 0,
       possibleMissingCurbCuts: 0,
       hydrantsNearby: 0,
+      bikeLanesNearby: 0,
+      userAnnotationsNearby: 0,
       busStopsNearby: 0,
       parkingConflicts: 0,
       bikeLaneFeasibility: "Low",
-      planningNotes: ["No mock corridor summary is defined for this road yet."]
+      planningNotes: ["No fallback corridor summary is defined for this road yet."]
     }
   );
 }
 
-export function createMockReport(corridorId: string, roadName: string): CorridorReportResult {
+export function createFallbackReport(corridorId: string, roadName: string): CorridorReportResult {
   reportCounter += 1;
   const reportId = `rep_${String(reportCounter).padStart(3, "0")}`;
   return {
     reportId,
     roadId: corridorId,
     downloadUrl: `/api/reports/${reportId}/download`,
-    summary: `${roadName} corridor report queued successfully. Mock export includes counts and planning notes.`
+    summary: `${roadName} corridor report queued successfully. Fallback export includes counts and planning notes.`
   };
 }

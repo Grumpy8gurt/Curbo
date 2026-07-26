@@ -10,12 +10,21 @@ export interface LineStringGeometry {
   coordinates: Position[];
 }
 
+export interface MultiLineStringGeometry {
+  type: "MultiLineString";
+  coordinates: Position[][];
+}
+
 export interface PolygonGeometry {
   type: "Polygon";
   coordinates: Position[][];
 }
 
-export type Geometry = PointGeometry | LineStringGeometry | PolygonGeometry;
+export type Geometry =
+  | PointGeometry
+  | LineStringGeometry
+  | MultiLineStringGeometry
+  | PolygonGeometry;
 
 export interface Feature<
   Properties extends object = Record<string, unknown>,
@@ -32,4 +41,9 @@ export interface FeatureCollection<
 > {
   type: "FeatureCollection";
   features: Item[];
+  metadata?: {
+    layer?: string;
+    status?: string;
+    source?: string;
+  };
 }

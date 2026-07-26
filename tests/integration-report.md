@@ -1,4 +1,4 @@
-# CURBO Integration Report (Sprint 2)
+# CURBO Sprint 2 Integration Report
 
 ## Summary
 

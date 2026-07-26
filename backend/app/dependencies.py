@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import Request
 
 from app.config import Settings
-from app.services.mock_data import AppStore
+from app.services.app_store import AppStore
 
 
 def get_store(request: Request) -> AppStore:

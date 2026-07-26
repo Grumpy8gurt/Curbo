@@ -1,6 +1,6 @@
 # CURBO Backend
 
-This backend provides the MVP API for CURBO, the sidewalk surveying and management dashboard. It serves map-ready GeoJSON layers, accepts planner annotations, and generates lightweight corridor reports for frontend integration.
+This FastAPI service normalizes CURBO's cached City of Eugene GIS layers, persists planner annotations to JSON, calculates lightweight corridor summaries, and generates HTML reports.
 
 ## Stack
 
@@ -8,7 +8,8 @@ This backend provides the MVP API for CURBO, the sidewalk surveying and manageme
 - FastAPI
 - SQLAlchemy
 - PostgreSQL + PostGIS as the intended long-term database
-- Mock GeoJSON and in-memory storage for local development fallback
+- Cached Eugene GeoJSON with compact sample fallback data
+- Atomic JSON-file annotation persistence
 
 ## Run Locally
 
@@ -34,6 +35,7 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 BACKEND_PORT=8000
 REPORT_DIR=generated_reports
+ANNOTATION_FILE=data/annotations.json
 ```
 
 Optional:
@@ -46,8 +48,10 @@ All routes are registered under `/api`.
 
 - `GET /api/health`
 - `GET /api/layers/roads`
+- `GET /api/layers/sidewalk-ramps`
 - `GET /api/layers/curb-ramps`
 - `GET /api/layers/hydrants`
+- `GET /api/layers/bike-lanes`
 - `GET /api/layers/annotations`
 - `GET /api/annotations`
 - `POST /api/annotations`
@@ -56,17 +60,18 @@ All routes are registered under `/api`.
 - `POST /api/reports/corridor`
 - `GET /api/reports/{report_id}/download`
 
-## Mock Behavior
+## Data and Fallback Behavior
 
-- Roads, curb ramps, and hydrants are loaded from the sample GeoJSON under `../data/sample`.
-- Annotations and generated reports are stored in memory for MVP development.
-- Corridor analysis uses lightweight spatial heuristics and bbox checks instead of real PostGIS buffering.
+- Eugene layers load from `../data/eugene` and are normalized by `EugeneDataService`.
+- Missing cached layers fall back to `../data/sample` where a matching sample exists.
+- Annotations persist to `ANNOTATION_FILE`; reports are written under `REPORT_DIR`.
+- Corridor analysis uses lightweight bounding-box checks instead of PostGIS buffering.
 
 ## Database Status
 
 - SQLAlchemy models are included for `roads`, `curb_ramps`, `hydrants`, `annotations`, and `corridor_reports`.
 - On startup the app attempts to create tables using the configured database URL.
-- If PostgreSQL/PostGIS is unavailable, the API still starts and serves mock/sample-backed responses so the frontend is not blocked.
+- If PostgreSQL/PostGIS is unavailable, the API still starts and serves cached GeoJSON because layer loading and annotation persistence are independent.
 
 ## Frontend Integration Notes
 

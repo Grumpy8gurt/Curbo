@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     backend_port: int = 8000
     report_dir: str = "generated_reports"
+    annotation_file: str = "data/annotations.json"
     database_url: str | None = None
     cors_origins: list[str] = Field(
         default_factory=lambda: [
@@ -57,6 +58,20 @@ class Settings(BaseSettings):
             if candidate.exists():
                 return candidate
         return project_sample_dir
+
+    @property
+    def eugene_data_dir(self) -> Path:
+        project_data_dir = self.project_root / "data" / "eugene"
+        if project_data_dir.exists():
+            return project_data_dir
+        return self.backend_root / "data" / "eugene"
+
+    @property
+    def resolved_annotation_file(self) -> Path:
+        annotation_path = Path(self.annotation_file)
+        if annotation_path.is_absolute():
+            return annotation_path
+        return self.backend_root / annotation_path
 
     @property
     def resolved_report_dir(self) -> Path:

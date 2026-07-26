@@ -30,6 +30,7 @@ postgres-data/
 
 reports/
 generated-reports/
+backend/data/annotations.json
 
 models/
 checkpoints/

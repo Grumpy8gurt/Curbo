@@ -21,4 +21,4 @@ def initialize_database(settings: Settings) -> tuple[sessionmaker[Session] | Non
         Base.metadata.create_all(engine)
         return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True), "connected"
     except Exception as exc:  # pragma: no cover - exercised only when DB is unavailable
-        return None, f"mock-fallback ({exc.__class__.__name__})"
+        return None, f"database-unavailable ({exc.__class__.__name__})"

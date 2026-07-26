@@ -7,7 +7,7 @@ export function Header() {
       </div>
       <div className="header-chip">
         <span className="status-dot" />
-        Eugene GIS planning workspace
+        Eugene civic infrastructure workspace
       </div>
     </header>
   );

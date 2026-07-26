@@ -1,6 +1,6 @@
 # API Contract
 
-This document reflects the current verified MVP integration contract.
+This document reflects the verified CURBO Sprint 3 integration contract.
 
 ## Backend Routes
 
@@ -16,15 +16,23 @@ This document reflects the current verified MVP integration contract.
 ### `GET /api/layers/roads`
 
 - Response: GeoJSON `FeatureCollection`
-- Road ids use the sample-data shape, for example `rd_001`
+- Road ids use the normalized Eugene shape, for example `road_20000641`
+
+### `GET /api/layers/sidewalk-ramps`
+
+- Response: GeoJSON `FeatureCollection`
 
 ### `GET /api/layers/curb-ramps`
 
-- Response: GeoJSON `FeatureCollection`
+- Compatibility alias for `/api/layers/sidewalk-ramps`
 
 ### `GET /api/layers/hydrants`
 
 - Response: GeoJSON `FeatureCollection`
+
+### `GET /api/layers/bike-lanes`
+
+- Response: GeoJSON `FeatureCollection` containing `LineString` or `MultiLineString` features
 
 ### `GET /api/layers/annotations`
 
@@ -90,7 +98,7 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "roadId": "rd_001"
+  "roadId": "road_20000641"
 }
 ```
 
@@ -98,14 +106,16 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "corridorId": "cor_rd_001",
-  "roadId": "rd_001",
-  "name": "Willamette Street",
+  "corridorId": "cor_road_20000641",
+  "roadId": "road_20000641",
+  "name": "BROADWAY",
   "knownCurbRamps": 2,
   "possibleMissingCurbCuts": 2,
   "hydrantsNearby": 1,
-  "busStopsNearby": 1,
-  "parkingConflicts": 2,
+  "bikeLanesNearby": 1,
+  "userAnnotationsNearby": 1,
+  "busStopsNearby": 0,
+  "parkingConflicts": 0,
   "bikeLaneFeasibility": "Medium",
   "planningNotes": [
     "Possible missing curb cuts near the selected corridor should be field-checked."
@@ -120,7 +130,7 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "corridor_id": "rd_001",
+  "corridor_id": "road_20000641",
   "format": "html"
 }
 ```
@@ -130,9 +140,9 @@ This document reflects the current verified MVP integration contract.
 ```json
 {
   "reportId": "rep_001",
-  "roadId": "rd_001",
+  "roadId": "road_20000641",
   "downloadUrl": "/api/reports/rep_001/download",
-  "summary": "Willamette Street corridor report queued successfully. Mock export includes counts and planning notes."
+  "summary": "BROADWAY corridor report queued successfully. Export includes counts and planning notes."
 }
 ```
 

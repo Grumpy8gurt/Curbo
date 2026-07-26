@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 def test_annotation_can_be_created_and_updated(client):
     create_response = client.post(
         "/api/annotations",
@@ -22,3 +25,4 @@ def test_annotation_can_be_created_and_updated(client):
 
     assert patch_response.status_code == 200
     assert patch_response.json()["properties"]["status"] == "reviewed"
+    assert Path(client.app.state.settings.resolved_annotation_file).exists()

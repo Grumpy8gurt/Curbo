@@ -21,6 +21,8 @@ class CorridorAnalysisResponse(BaseModel):
     knownCurbRamps: int
     possibleMissingCurbCuts: int
     hydrantsNearby: int
+    bikeLanesNearby: int
+    userAnnotationsNearby: int
     busStopsNearby: int
     parkingConflicts: int
     bikeLaneFeasibility: Literal["Low", "Medium", "High"]

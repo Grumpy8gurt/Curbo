@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 
 from app.dependencies import get_settings_from_request, get_store
 from app.schemas.reports import CorridorReportRequest, CorridorReportResponse
-from app.services.mock_data import AppStore
+from app.services.app_store import AppStore
 from app.services.report_generator import generate_corridor_report
 from app.services.spatial_queries import analyze_corridor
 
@@ -21,14 +21,14 @@ def create_corridor_report(
     analysis = analyze_corridor(store, payload.road_id, buffer_meters=30)
     summary_message = (
         f"{analysis.name} corridor report queued successfully. "
-        "Mock export includes counts, notes, and annotation status."
+        "Export includes Eugene layer counts, planning notes, and annotation status."
     )
     report_id = store.next_id("report")
     report_path = generate_corridor_report(
         settings.resolved_report_dir,
         report_id=report_id,
         summary=analysis.model_dump(),
-        include_layers=["roads", "curbRamps", "hydrants", "annotations"],
+        include_layers=["roads", "sidewalkRamps", "hydrants", "bikeLanes", "annotations"],
     )
     store.create_report(
         {

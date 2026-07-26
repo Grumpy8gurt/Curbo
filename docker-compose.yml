@@ -28,8 +28,11 @@ services:
       POSTGRES_PORT: 5432
       BACKEND_PORT: ${BACKEND_PORT:-8000}
       REPORT_DIR: ${REPORT_DIR:-generated_reports}
+      ANNOTATION_FILE: /app/data/runtime/annotations.json
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - annotation-data:/app/data/runtime
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,3 +46,4 @@ services:
 
 volumes:
   postgres-data:
+  annotation-data:

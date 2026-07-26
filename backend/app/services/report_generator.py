@@ -37,8 +37,8 @@ def generate_corridor_report(
   </head>
   <body>
     <h1>CURBO Corridor Report</h1>
-    <p><strong>Road:</strong> {escape(str(summary.get("road_name", summary.get("road_id", ""))))}</p>
-    <p><strong>Feasibility:</strong> {escape(str(summary.get("bike_lane_feasibility", "unknown")))}</p>
+    <p><strong>Road:</strong> {escape(str(summary.get("name", summary.get("roadId", ""))))}</p>
+    <p><strong>Feasibility:</strong> {escape(str(summary.get("bikeLaneFeasibility", "unknown")))}</p>
     <h2>Layers Included</h2>
     <p>{escape(", ".join(include_layers) if include_layers else "None requested")}</p>
     <h2>Summary</h2>

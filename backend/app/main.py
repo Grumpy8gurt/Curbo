@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, get_settings
 from app.db import initialize_database
 from app.routers import annotations, corridors, health, layers, reports
-from app.services.mock_data import AppStore
+from app.services.eugene_data_service import EugeneDataService
+from app.services.app_store import AppStore
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,7 +22,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.settings = resolved_settings
         application.state.db_session_factory = session_factory
         application.state.db_status = db_status
-        application.state.store = AppStore.from_sample_dir(resolved_settings.sample_data_dir)
+        data_service = EugeneDataService(
+            resolved_settings.eugene_data_dir,
+            resolved_settings.sample_data_dir,
+        )
+        application.state.store = AppStore.from_collections(
+            data_service.load_all(),
+            resolved_settings.resolved_annotation_file,
+        )
         yield
 
     application = FastAPI(

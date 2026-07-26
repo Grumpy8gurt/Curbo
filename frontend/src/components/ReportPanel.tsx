@@ -27,7 +27,7 @@ export function ReportPanel({
         </div>
         <div className="metrics-grid">
           <div>
-            <span>Known curb ramps</span>
+            <span>Sidewalk ramps</span>
             <strong>{summary.knownCurbRamps}</strong>
           </div>
           <div>
@@ -39,12 +39,12 @@ export function ReportPanel({
             <strong>{summary.hydrantsNearby}</strong>
           </div>
           <div>
-            <span>Parking conflicts</span>
-            <strong>{summary.parkingConflicts}</strong>
+            <span>Bike facilities</span>
+            <strong>{summary.bikeLanesNearby}</strong>
           </div>
           <div>
-            <span>Bus stops</span>
-            <strong>{summary.busStopsNearby}</strong>
+            <span>User annotations</span>
+            <strong>{summary.userAnnotationsNearby}</strong>
           </div>
         </div>
         <div className="notes-list">

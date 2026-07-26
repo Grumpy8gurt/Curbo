@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl, {
   type GeoJSONSource,
   type Map,
@@ -7,11 +7,11 @@ import maplibregl, {
 import type { AnnotationFeatureCollection } from "../types/annotations";
 import type { Feature } from "../types/geojson";
 import type {
+  BikeLaneFeatureCollection,
   CurbRampFeatureCollection,
   HydrantFeatureCollection,
   LayerId,
   LayerVisibility,
-  PlaceholderFeatureCollection,
   RoadFeature,
   RoadFeatureCollection
 } from "../types/layers";
@@ -24,15 +24,10 @@ import { FeaturePopup } from "./FeaturePopup";
 
 interface MapViewProps {
   roads: RoadFeatureCollection;
-  curbRamps: CurbRampFeatureCollection;
+  sidewalkRamps: CurbRampFeatureCollection;
   hydrants: HydrantFeatureCollection;
+  bikeLanes: BikeLaneFeatureCollection;
   annotations: AnnotationFeatureCollection;
-  placeholders: {
-    bikeLanes: PlaceholderFeatureCollection;
-    busStops: PlaceholderFeatureCollection;
-    parkingZones: PlaceholderFeatureCollection;
-    parcels: PlaceholderFeatureCollection;
-  };
   visibility: LayerVisibility;
   selectedFeature: SelectedFeatureDetails | null;
   selectedRoadId: string | null;
@@ -42,21 +37,19 @@ interface MapViewProps {
 
 const SOURCE_IDS = {
   roads: "roads-source",
-  curbRamps: "curb-ramps-source",
+  sidewalkRamps: "sidewalk-ramps-source",
   hydrants: "hydrants-source",
   annotations: "annotations-source",
-  bikeLanes: "bike-lanes-source",
-  busStops: "bus-stops-source",
-  parkingZones: "parking-zones-source",
-  parcels: "parcels-source"
+  bikeLanes: "bike-lanes-source"
 } satisfies Record<LayerId, string>;
 
 const LAYER_IDS = {
   roads: "roads-layer",
-  curbRamps: "curb-ramps-layer",
+  sidewalkRamps: "sidewalk-ramps-layer",
   hydrants: "hydrants-layer",
-  annotations: "annotations-layer"
-} satisfies Record<"roads" | "curbRamps" | "hydrants" | "annotations", string>;
+  annotations: "annotations-layer",
+  bikeLanes: "bike-lanes-layer"
+} satisfies Record<LayerId, string>;
 
 const LOCAL_MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -75,10 +68,10 @@ const LOCAL_MAP_STYLE: StyleSpecification = {
 
 export function MapView({
   roads,
-  curbRamps,
+  sidewalkRamps,
   hydrants,
+  bikeLanes,
   annotations,
-  placeholders,
   visibility,
   selectedFeature,
   selectedRoadId,
@@ -88,6 +81,7 @@ export function MapView({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   const hasFittedBoundsRef = useRef(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -112,6 +106,7 @@ export function MapView({
       addSources(map);
       addLayers(map);
       wireInteractions(map, onFeatureSelect, onRoadSelect);
+      setMapLoaded(true);
     });
 
     mapRef.current = map;
@@ -120,6 +115,7 @@ export function MapView({
       map.remove();
       mapRef.current = null;
       hasFittedBoundsRef.current = false;
+      setMapLoaded(false);
     };
   }, [onFeatureSelect, onRoadSelect]);
 
@@ -130,19 +126,16 @@ export function MapView({
     }
 
     setSourceData(map, SOURCE_IDS.roads, roads);
-    setSourceData(map, SOURCE_IDS.curbRamps, curbRamps);
+    setSourceData(map, SOURCE_IDS.sidewalkRamps, sidewalkRamps);
     setSourceData(map, SOURCE_IDS.hydrants, hydrants);
     setSourceData(map, SOURCE_IDS.annotations, annotations);
-    setSourceData(map, SOURCE_IDS.bikeLanes, placeholders.bikeLanes);
-    setSourceData(map, SOURCE_IDS.busStops, placeholders.busStops);
-    setSourceData(map, SOURCE_IDS.parkingZones, placeholders.parkingZones);
-    setSourceData(map, SOURCE_IDS.parcels, placeholders.parcels);
+    setSourceData(map, SOURCE_IDS.bikeLanes, bikeLanes);
 
     if (!hasFittedBoundsRef.current && roads.features.length > 0) {
       fitMapToRoads(map, roads);
       hasFittedBoundsRef.current = true;
     }
-  }, [roads, curbRamps, hydrants, annotations, placeholders]);
+  }, [mapLoaded, roads, sidewalkRamps, hydrants, bikeLanes, annotations]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -183,13 +176,10 @@ export function MapView({
 
 function addSources(map: Map) {
   map.addSource(SOURCE_IDS.roads, { type: "geojson", data: emptyCollection() });
-  map.addSource(SOURCE_IDS.curbRamps, { type: "geojson", data: emptyCollection() });
+  map.addSource(SOURCE_IDS.sidewalkRamps, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.hydrants, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.annotations, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.bikeLanes, { type: "geojson", data: emptyCollection() });
-  map.addSource(SOURCE_IDS.busStops, { type: "geojson", data: emptyCollection() });
-  map.addSource(SOURCE_IDS.parkingZones, { type: "geojson", data: emptyCollection() });
-  map.addSource(SOURCE_IDS.parcels, { type: "geojson", data: emptyCollection() });
 }
 
 function addLayers(map: Map) {
@@ -204,9 +194,20 @@ function addLayers(map: Map) {
   });
 
   map.addLayer({
-    id: LAYER_IDS.curbRamps,
+    id: LAYER_IDS.bikeLanes,
+    type: "line",
+    source: SOURCE_IDS.bikeLanes,
+    paint: {
+      "line-color": "#2274a5",
+      "line-width": 3,
+      "line-opacity": 0.85
+    }
+  });
+
+  map.addLayer({
+    id: LAYER_IDS.sidewalkRamps,
     type: "circle",
-    source: SOURCE_IDS.curbRamps,
+    source: SOURCE_IDS.sidewalkRamps,
     paint: {
       "circle-radius": 6,
       "circle-color": "#2fbf9b",
@@ -248,8 +249,9 @@ function wireInteractions(
 ) {
   const interactiveLayerEntries: Array<[LayerId, string]> = [
     ["roads", LAYER_IDS.roads],
-    ["curbRamps", LAYER_IDS.curbRamps],
+    ["sidewalkRamps", LAYER_IDS.sidewalkRamps],
     ["hydrants", LAYER_IDS.hydrants],
+    ["bikeLanes", LAYER_IDS.bikeLanes],
     ["annotations", LAYER_IDS.annotations]
   ];
 
@@ -291,14 +293,19 @@ function syncVisibility(map: Map, visibility: LayerVisibility) {
     visibility.roads ? "visible" : "none"
   );
   map.setLayoutProperty(
-    LAYER_IDS.curbRamps,
+    LAYER_IDS.sidewalkRamps,
     "visibility",
-    visibility.curbRamps ? "visible" : "none"
+    visibility.sidewalkRamps ? "visible" : "none"
   );
   map.setLayoutProperty(
     LAYER_IDS.hydrants,
     "visibility",
     visibility.hydrants ? "visible" : "none"
+  );
+  map.setLayoutProperty(
+    LAYER_IDS.bikeLanes,
+    "visibility",
+    visibility.bikeLanes ? "visible" : "none"
   );
   map.setLayoutProperty(
     LAYER_IDS.annotations,

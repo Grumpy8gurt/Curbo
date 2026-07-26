@@ -4,6 +4,7 @@ import type {
 } from "../types/annotations";
 import type { Feature, Geometry, LineStringGeometry, Position } from "../types/geojson";
 import type {
+  BikeLaneProperties,
   CurbRampProperties,
   HydrantProperties,
   LayerId,
@@ -31,6 +32,11 @@ export function getFeatureCenter(geometry: Geometry): Position {
     return geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
   }
 
+  if (geometry.type === "MultiLineString") {
+    const line = geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
+    return line[Math.floor(line.length / 2)];
+  }
+
   return geometry.coordinates[0][0];
 }
 
@@ -45,7 +51,7 @@ export function toSelectedFeatureDetails(
   switch (layerId) {
     case "roads":
       return fromRoadFeature(feature as unknown as RoadFeature);
-    case "curbRamps":
+    case "sidewalkRamps":
       return fromCurbRampFeature(
         feature.properties as unknown as CurbRampProperties,
         feature.geometry
@@ -53,6 +59,11 @@ export function toSelectedFeatureDetails(
     case "hydrants":
       return fromHydrantFeature(
         feature.properties as unknown as HydrantProperties,
+        feature.geometry
+      );
+    case "bikeLanes":
+      return fromBikeLaneFeature(
+        feature.properties as unknown as BikeLaneProperties,
         feature.geometry
       );
     case "annotations":
@@ -88,10 +99,10 @@ function fromCurbRampFeature(
 ): SelectedFeatureDetails {
   return {
     id: properties.ramp_id,
-    layerId: "curbRamps",
+    layerId: "sidewalkRamps",
     title: properties.ramp_id,
-    subtitle: "Curb ramp",
-    source: "curb ramps layer",
+    subtitle: "Sidewalk ramp",
+    source: properties.source ?? "City of Eugene GIS",
     status: properties.status,
     notes: `Condition: ${properties.condition}`,
     coordinates: getFeatureCenter(geometry)
@@ -107,8 +118,23 @@ function fromHydrantFeature(
     layerId: "hydrants",
     title: properties.hydrant_id,
     subtitle: "Hydrant",
-    source: "hydrants layer",
+    source: properties.source ?? "City of Eugene GIS",
     notes: `Flow class: ${properties.flow_class}`,
+    coordinates: getFeatureCenter(geometry)
+  };
+}
+
+function fromBikeLaneFeature(
+  properties: BikeLaneProperties,
+  geometry: Geometry
+): SelectedFeatureDetails {
+  return {
+    id: properties.bike_lane_id,
+    layerId: "bikeLanes",
+    title: properties.name,
+    subtitle: properties.facility_type,
+    source: properties.source ?? "City of Eugene GIS",
+    status: properties.status,
     coordinates: getFeatureCenter(geometry)
   };
 }

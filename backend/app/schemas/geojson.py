@@ -31,11 +31,17 @@ class LineStringGeometry(BaseModel):
         return value
 
 
-Geometry = PointGeometry | LineStringGeometry
+class MultiLineStringGeometry(BaseModel):
+    type: Literal["MultiLineString"] = "MultiLineString"
+    coordinates: list[list[list[float]]]
+
+
+Geometry = PointGeometry | LineStringGeometry | MultiLineStringGeometry
 
 
 class Feature(BaseModel):
     type: Literal["Feature"] = "Feature"
+    id: str | int | None = None
     geometry: Geometry
     properties: dict[str, Any] = Field(default_factory=dict)
 
@@ -43,3 +49,4 @@ class Feature(BaseModel):
 class FeatureCollection(BaseModel):
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[Feature] = Field(default_factory=list)
+    metadata: dict[str, Any] | None = None
