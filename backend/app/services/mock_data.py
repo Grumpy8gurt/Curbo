@@ -74,44 +74,15 @@ def _default_annotations() -> list[dict[str, Any]]:
     ]
 
 
-def _default_detections() -> list[dict[str, Any]]:
-    return [
-        {
-            "id": "det_001",
-            "upload_id": "upl_sample_001",
-            "label": "Possible missing curb cut",
-            "confidence": 0.87,
-            "bbox": [96, 72, 232, 188],
-            "estimated_location": {"type": "Point", "coordinates": [-123.0906, 44.0517]},
-            "review_status": "pending",
-            "source": "mock-model",
-            "created_at": datetime(2026, 7, 5, 15, 20, tzinfo=timezone.utc),
-        },
-        {
-            "id": "det_002",
-            "upload_id": "upl_sample_002",
-            "label": "Possible curb ramp retrofit",
-            "confidence": 0.71,
-            "bbox": [88, 68, 220, 180],
-            "estimated_location": {"type": "Point", "coordinates": [-123.0872, 44.0496]},
-            "review_status": "confirmed",
-            "source": "mock-model",
-            "created_at": datetime(2026, 7, 5, 15, 25, tzinfo=timezone.utc),
-        }
-    ]
-
-
 @dataclass
 class AppStore:
     roads: dict[str, Any]
     curb_ramps: dict[str, Any]
     hydrants: dict[str, Any]
     annotations: list[dict[str, Any]] = field(default_factory=_default_annotations)
-    detections: list[dict[str, Any]] = field(default_factory=_default_detections)
-    uploaded_images: list[dict[str, Any]] = field(default_factory=list)
     reports: list[dict[str, Any]] = field(default_factory=list)
     counters: dict[str, int] = field(
-        default_factory=lambda: {"annotation": 2, "image": 0, "detection": 2, "report": 0}
+        default_factory=lambda: {"annotation": 2, "report": 0}
     )
 
     @classmethod
@@ -123,8 +94,6 @@ class AppStore:
         self.counters[kind] += 1
         prefixes = {
             "annotation": "ann",
-            "image": "upl",
-            "detection": "det",
             "report": "rep",
         }
         return f"{prefixes[kind]}_{self.counters[kind]:03d}"
@@ -172,59 +141,6 @@ class AppStore:
 
     def get_annotations_feature_collection(self) -> dict[str, Any]:
         features = [self.annotation_to_feature(annotation) for annotation in self.list_annotations()]
-        return {"type": "FeatureCollection", "features": features}
-
-    def create_upload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        image_record = {"id": self.next_id("image"), **payload}
-        self.uploaded_images.append(image_record)
-        return image_record
-
-    def get_upload(self, image_id: str) -> dict[str, Any] | None:
-        for uploaded_image in self.uploaded_images:
-            if uploaded_image["id"] == image_id:
-                return uploaded_image
-        return None
-
-    def add_detections(self, upload_id: str, detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        stored_detections = []
-        for detection in detections:
-            stored = {
-                "id": self.next_id("detection"),
-                "upload_id": upload_id,
-                "created_at": datetime.now(timezone.utc),
-                "source": detection.get("source", "ml-service"),
-                **detection,
-            }
-            self.detections.append(stored)
-            stored_detections.append(stored)
-        return stored_detections
-
-    def update_detection(self, detection_id: str, review_status: str) -> dict[str, Any] | None:
-        for detection in self.detections:
-            if detection["id"] == detection_id:
-                detection["review_status"] = review_status
-                return detection
-        return None
-
-    def detection_to_feature(self, detection: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "type": "Feature",
-            "id": detection["id"],
-            "geometry": detection["estimated_location"]
-            or {"type": "Point", "coordinates": [-123.0868, 44.0521]},
-            "properties": {
-                "detection_id": detection["id"],
-                "label": detection["label"],
-                "confidence": detection["confidence"],
-                "review_status": detection["review_status"],
-                "upload_id": detection.get("upload_id"),
-                "source": detection.get("source", "mock-detection"),
-                "bbox": detection.get("bbox"),
-            },
-        }
-
-    def get_detections_feature_collection(self) -> dict[str, Any]:
-        features = [self.detection_to_feature(detection) for detection in self.detections]
         return {"type": "FeatureCollection", "features": features}
 
     def create_report(self, payload: dict[str, Any]) -> dict[str, Any]:

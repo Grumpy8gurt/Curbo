@@ -2,7 +2,7 @@
 
 ## How AI Helped Implementation
 
-AI helped accelerate repository setup, frontend scaffolding, backend route integration, mock ML wiring, and documentation drafting. It was most useful for:
+AI helped accelerate repository setup, frontend scaffolding, backend route integration, and documentation drafting. It was most useful for:
 
 - organizing the frontend into components, API modules, and typed data flow
 - drafting mock-first FastAPI routes and response schemas
@@ -19,7 +19,7 @@ I accepted the suggestion to keep the frontend and backend compatible by adjusti
 
 ## One Suggestion I Rejected Or Postponed
 
-I postponed replacing the mock-first data flow with full Postgres/PostGIS persistence. I also decided against building out a more fleshed-out ML layer for this stage, because the scope was starting to grow beyond what made sense for the project right now. For Sprint 2, proving the planning workflow mattered more than forcing a larger ML integration.
+I postponed replacing the mock-first data flow with full Postgres/PostGIS persistence so the Sprint 2 work could remain focused on the core planning workflow.
 
 ## One Verification Step After Review
 
@@ -27,9 +27,8 @@ After AI-assisted review surfaced integration drift and runtime issues, I verifi
 
 - `cd frontend && npm run build`
 - `cd backend && pytest`
-- `cd ml && pytest`
 
-I also confirmed that the backend and ML services could start locally with `uvicorn`, checked key backend routes with smoke tests, and re-tested the frontend map after replacing its remote basemap dependency.
+I also confirmed that the backend could start locally with `uvicorn`, checked key backend routes with smoke tests, and re-tested the frontend map after replacing its remote basemap dependency.
 
 ## Final Responsibility
 

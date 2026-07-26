@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
-from app.models import annotation, corridor_report, curb_ramp, detection, hydrant, road, uploaded_image
+from app.models import annotation, corridor_report, curb_ramp, hydrant, road
 from app.models.base import Base
 
 

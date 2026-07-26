@@ -312,20 +312,6 @@ button {
   transform: none;
 }
 
-.upload-dropzone {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px dashed rgba(23, 50, 77, 0.25);
-  border-radius: 18px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.upload-dropzone input {
-  width: 100%;
-}
-
 .info-card,
 .summary-card {
   padding: 14px;

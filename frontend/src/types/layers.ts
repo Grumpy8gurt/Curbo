@@ -10,7 +10,6 @@ export type LayerId =
   | "curbRamps"
   | "hydrants"
   | "annotations"
-  | "detections"
   | "bikeLanes"
   | "busStops"
   | "parkingZones"
@@ -61,7 +60,6 @@ export const LAYER_OPTIONS: LayerOption[] = [
   { id: "curbRamps", label: "Curb ramps" },
   { id: "hydrants", label: "Hydrants" },
   { id: "annotations", label: "Annotations" },
-  { id: "detections", label: "AI detections" },
   { id: "bikeLanes", label: "Bike lanes", disabled: true },
   { id: "busStops", label: "Bus stops", disabled: true },
   { id: "parkingZones", label: "Parking zones", disabled: true },
@@ -73,7 +71,6 @@ export const DEFAULT_LAYER_VISIBILITY: LayerVisibility = {
   curbRamps: true,
   hydrants: true,
   annotations: true,
-  detections: true,
   bikeLanes: false,
   busStops: false,
   parkingZones: false,

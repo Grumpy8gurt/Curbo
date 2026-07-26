@@ -18,7 +18,6 @@ from app.main import create_app
 def client(tmp_path):
     settings = Settings(
         database_url="sqlite://",
-        upload_dir=str(tmp_path / "uploads"),
         report_dir=str(tmp_path / "reports"),
     )
     app = create_app(settings)

@@ -5,7 +5,6 @@ import maplibregl, {
   type StyleSpecification
 } from "maplibre-gl";
 import type { AnnotationFeatureCollection } from "../types/annotations";
-import type { DetectionFeatureCollection } from "../types/detections";
 import type { Feature } from "../types/geojson";
 import type {
   CurbRampFeatureCollection,
@@ -28,7 +27,6 @@ interface MapViewProps {
   curbRamps: CurbRampFeatureCollection;
   hydrants: HydrantFeatureCollection;
   annotations: AnnotationFeatureCollection;
-  detections: DetectionFeatureCollection;
   placeholders: {
     bikeLanes: PlaceholderFeatureCollection;
     busStops: PlaceholderFeatureCollection;
@@ -47,7 +45,6 @@ const SOURCE_IDS = {
   curbRamps: "curb-ramps-source",
   hydrants: "hydrants-source",
   annotations: "annotations-source",
-  detections: "detections-source",
   bikeLanes: "bike-lanes-source",
   busStops: "bus-stops-source",
   parkingZones: "parking-zones-source",
@@ -58,9 +55,8 @@ const LAYER_IDS = {
   roads: "roads-layer",
   curbRamps: "curb-ramps-layer",
   hydrants: "hydrants-layer",
-  annotations: "annotations-layer",
-  detections: "detections-layer"
-} satisfies Record<"roads" | "curbRamps" | "hydrants" | "annotations" | "detections", string>;
+  annotations: "annotations-layer"
+} satisfies Record<"roads" | "curbRamps" | "hydrants" | "annotations", string>;
 
 const LOCAL_MAP_STYLE: StyleSpecification = {
   version: 8,
@@ -82,7 +78,6 @@ export function MapView({
   curbRamps,
   hydrants,
   annotations,
-  detections,
   placeholders,
   visibility,
   selectedFeature,
@@ -138,7 +133,6 @@ export function MapView({
     setSourceData(map, SOURCE_IDS.curbRamps, curbRamps);
     setSourceData(map, SOURCE_IDS.hydrants, hydrants);
     setSourceData(map, SOURCE_IDS.annotations, annotations);
-    setSourceData(map, SOURCE_IDS.detections, detections);
     setSourceData(map, SOURCE_IDS.bikeLanes, placeholders.bikeLanes);
     setSourceData(map, SOURCE_IDS.busStops, placeholders.busStops);
     setSourceData(map, SOURCE_IDS.parkingZones, placeholders.parkingZones);
@@ -148,7 +142,7 @@ export function MapView({
       fitMapToRoads(map, roads);
       hasFittedBoundsRef.current = true;
     }
-  }, [roads, curbRamps, hydrants, annotations, detections, placeholders]);
+  }, [roads, curbRamps, hydrants, annotations, placeholders]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -192,7 +186,6 @@ function addSources(map: Map) {
   map.addSource(SOURCE_IDS.curbRamps, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.hydrants, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.annotations, { type: "geojson", data: emptyCollection() });
-  map.addSource(SOURCE_IDS.detections, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.bikeLanes, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.busStops, { type: "geojson", data: emptyCollection() });
   map.addSource(SOURCE_IDS.parkingZones, { type: "geojson", data: emptyCollection() });
@@ -246,18 +239,6 @@ function addLayers(map: Map) {
     }
   });
 
-  map.addLayer({
-    id: LAYER_IDS.detections,
-    type: "circle",
-    source: SOURCE_IDS.detections,
-    paint: {
-      "circle-radius": 8,
-      "circle-color": "#8f5aff",
-      "circle-opacity": 0.85,
-      "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 2
-    }
-  });
 }
 
 function wireInteractions(
@@ -269,8 +250,7 @@ function wireInteractions(
     ["roads", LAYER_IDS.roads],
     ["curbRamps", LAYER_IDS.curbRamps],
     ["hydrants", LAYER_IDS.hydrants],
-    ["annotations", LAYER_IDS.annotations],
-    ["detections", LAYER_IDS.detections]
+    ["annotations", LAYER_IDS.annotations]
   ];
 
   interactiveLayerEntries.forEach(([layerId, mapLayerId]) => {
@@ -324,11 +304,6 @@ function syncVisibility(map: Map, visibility: LayerVisibility) {
     LAYER_IDS.annotations,
     "visibility",
     visibility.annotations ? "visible" : "none"
-  );
-  map.setLayoutProperty(
-    LAYER_IDS.detections,
-    "visibility",
-    visibility.detections ? "visible" : "none"
   );
 }
 

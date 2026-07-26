@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
 from app.db import initialize_database
-from app.routers import annotations, corridors, detection, health, layers, reports, uploads
+from app.routers import annotations, corridors, health, layers, reports
 from app.services.mock_data import AppStore
 
 
@@ -16,7 +16,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(application: FastAPI):
-        resolved_settings.resolved_upload_dir.mkdir(parents=True, exist_ok=True)
         resolved_settings.resolved_report_dir.mkdir(parents=True, exist_ok=True)
         session_factory, db_status = initialize_database(resolved_settings)
         application.state.settings = resolved_settings
@@ -41,8 +40,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(layers.router, prefix="/api")
     application.include_router(annotations.router, prefix="/api")
     application.include_router(corridors.router, prefix="/api")
-    application.include_router(uploads.router, prefix="/api")
-    application.include_router(detection.router, prefix="/api")
     application.include_router(reports.router, prefix="/api")
     return application
 

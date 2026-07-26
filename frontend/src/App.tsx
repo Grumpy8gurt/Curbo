@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { createAnnotation, getAnnotations } from "./api/annotations";
 import {
-  runCurbCutDetection,
-  updateDetectionReviewStatus,
-  uploadImage
-} from "./api/detection";
-import {
   getCurbRamps,
-  getDetections,
   getHydrants,
   getPlaceholderLayer,
   getRoads
@@ -16,23 +10,17 @@ import { analyzeCorridor } from "./api/corridors";
 import { generateCorridorReport } from "./api/reports";
 import { AnnotationTool } from "./components/AnnotationTool";
 import { CorridorSelector } from "./components/CorridorSelector";
-import { DetectionReviewPanel } from "./components/DetectionReviewPanel";
 import { Header } from "./components/Header";
 import { LayerPanel } from "./components/LayerPanel";
 import { Layout } from "./components/Layout";
 import { MapView } from "./components/MapView";
 import { ReportPanel } from "./components/ReportPanel";
 import { Sidebar } from "./components/Sidebar";
-import { UploadPanel } from "./components/UploadPanel";
 import type {
   AnnotationDraft,
   AnnotationFeatureCollection
 } from "./types/annotations";
 import type { CorridorSummary } from "./types/corridors";
-import type {
-  DetectionFeatureCollection,
-  DetectionReviewStatus
-} from "./types/detections";
 import type { PlaceholderFeatureCollection, RoadFeatureCollection } from "./types/layers";
 import {
   DEFAULT_LAYER_VISIBILITY,
@@ -48,7 +36,6 @@ const EMPTY_ROADS: RoadFeatureCollection = { type: "FeatureCollection", features
 const EMPTY_CURB_RAMPS: CurbRampFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_HYDRANTS: HydrantFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_ANNOTATIONS: AnnotationFeatureCollection = { type: "FeatureCollection", features: [] };
-const EMPTY_DETECTIONS: DetectionFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_PLACEHOLDERS: PlaceholderFeatureCollection = {
   type: "FeatureCollection",
   features: []
@@ -60,7 +47,6 @@ export default function App() {
   const [hydrants, setHydrants] = useState<HydrantFeatureCollection>(EMPTY_HYDRANTS);
   const [annotations, setAnnotations] =
     useState<AnnotationFeatureCollection>(EMPTY_ANNOTATIONS);
-  const [detections, setDetections] = useState<DetectionFeatureCollection>(EMPTY_DETECTIONS);
   const [bikeLanes, setBikeLanes] = useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
   const [busStops, setBusStops] = useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
   const [parkingZones, setParkingZones] =
@@ -84,7 +70,6 @@ export default function App() {
           nextCurbRamps,
           nextHydrants,
           nextAnnotations,
-          nextDetections,
           nextBikeLanes,
           nextBusStops,
           nextParkingZones,
@@ -94,7 +79,6 @@ export default function App() {
           getCurbRamps(),
           getHydrants(),
           getAnnotations(),
-          getDetections(),
           getPlaceholderLayer(),
           getPlaceholderLayer(),
           getPlaceholderLayer(),
@@ -105,7 +89,6 @@ export default function App() {
         setCurbRamps(nextCurbRamps);
         setHydrants(nextHydrants);
         setAnnotations(nextAnnotations);
-        setDetections(nextDetections);
         setBikeLanes(nextBikeLanes);
         setBusStops(nextBusStops);
         setParkingZones(nextParkingZones);
@@ -166,55 +149,6 @@ export default function App() {
     setActivityMessage("New annotation added to the map.");
   }
 
-  async function handleUpload(file: File) {
-    setActivityMessage(`Uploading ${file.name} to the detection pipeline...`);
-    const upload = await uploadImage(file);
-    const detection = await runCurbCutDetection(upload.uploadId);
-    setDetections((current) => ({
-      ...current,
-      features: [detection, ...current.features]
-    }));
-    setSelectedFeature({
-      id: detection.properties.detection_id,
-      layerId: "detections",
-      title: detection.properties.label,
-      subtitle: "AI detection",
-      source: detection.properties.source,
-      status: detection.properties.review_status,
-      confidence: detection.properties.confidence,
-      coordinates: detection.geometry.coordinates
-    });
-    setActivityMessage(`Detection created from ${upload.filename}.`);
-  }
-
-  async function handleDetectionReview(
-    detectionId: string,
-    status: DetectionReviewStatus
-  ) {
-    const updated = await updateDetectionReviewStatus(detectionId, status);
-    if (!updated) {
-      return;
-    }
-
-    setDetections((current) => ({
-      ...current,
-      features: current.features.map((feature) =>
-        feature.properties.detection_id === detectionId ? updated : feature
-      )
-    }));
-
-    setSelectedFeature((current) =>
-      current?.id === detectionId
-        ? {
-            ...current,
-            status
-          }
-        : current
-    );
-
-    setActivityMessage(`Detection ${detectionId} marked ${status}.`);
-  }
-
   async function handleGenerateReport() {
     if (!corridorSummary) {
       return;
@@ -270,13 +204,6 @@ export default function App() {
             >
               <AnnotationTool onCreate={handleCreateAnnotation} />
             </Sidebar>
-
-            <Sidebar
-              title="Image upload"
-              description="Prototype the future AI pipeline without implementing the model itself."
-            >
-              <UploadPanel onUpload={handleUpload} />
-            </Sidebar>
           </>
         }
         map={
@@ -285,7 +212,6 @@ export default function App() {
             curbRamps={curbRamps}
             hydrants={hydrants}
             annotations={annotations}
-            detections={detections}
             placeholders={{ bikeLanes, busStops, parkingZones, parcels }}
             visibility={visibility}
             selectedFeature={selectedFeature}
@@ -311,23 +237,12 @@ export default function App() {
             </Sidebar>
 
             <Sidebar
-              title="Detection review"
-              description="Review mocked curb-cut candidates and keep their status in sync with the map."
-            >
-              <DetectionReviewPanel
-                detections={detections.features}
-                onReview={handleDetectionReview}
-              />
-            </Sidebar>
-
-            <Sidebar
               title="Working assumptions"
               description="This frontend is intentionally mock-first so the rest of the stack can catch up later."
             >
               <ul className="assumption-list">
                 <li>Map layers currently load from sample or local mock GeoJSON.</li>
                 <li>Corridor analysis and reporting are simulated in the frontend API layer.</li>
-                <li>Uploads create fake detections and do not invoke real ML inference.</li>
                 <li>Backend integration can replace the API modules without redesigning the UI.</li>
               </ul>
             </Sidebar>

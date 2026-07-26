@@ -31,9 +31,6 @@ postgres-data/
 reports/
 generated-reports/
 
-uploads/
-uploaded-images/
-
 models/
 checkpoints/
 weights/

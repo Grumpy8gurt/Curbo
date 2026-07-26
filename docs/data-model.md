@@ -18,6 +18,4 @@ The database will use PostgreSQL with PostGIS. Table definitions are still to be
 ## User and Workflow Tables
 
 - `annotations`: planner-created notes, flags, or sketch geometry; suggested geometry type `GEOMETRY` to allow points, lines, and polygons
-- `detections`: curb-cut detection outputs with confidence and review status; suggested geometry type `POINT` or `POLYGON`
-- `uploaded_images`: metadata for uploaded street-level imagery and storage references; suggested geometry type `POINT` when geolocated, nullable at first
 - `corridor_reports`: generated summary records and artifact metadata; suggested geometry type `LINESTRING` or `POLYGON` for corridor footprint, nullable if stored indirectly

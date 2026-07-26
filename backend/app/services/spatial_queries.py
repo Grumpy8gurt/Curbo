@@ -95,14 +95,15 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
     known_curb_ramps = _count_near_features(store.curb_ramps, corridor_bbox)
     hydrants = _count_near_features(store.hydrants, corridor_bbox)
 
-    annotation_features = filter_feature_collection(store.get_annotations_feature_collection(), corridor_bbox)
-    detection_features = filter_feature_collection(store.get_detections_feature_collection(), corridor_bbox)
+    annotation_features = filter_feature_collection(
+        store.get_annotations_feature_collection(), corridor_bbox
+    )
 
     missing_curb_cuts = sum(
         1
         for feature in annotation_features["features"]
         if feature["properties"].get("annotation_type") == "missing curb cut"
-    ) + len(detection_features["features"])
+    )
     parking_conflicts = 2 if road_id == "rd_001" else 1
     bus_stops = 1 if road_id in {"rd_001", "rd_002"} else 0
 

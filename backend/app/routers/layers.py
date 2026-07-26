@@ -40,11 +40,3 @@ def get_annotation_layer(
     store: AppStore = Depends(get_store),
 ):
     return filter_feature_collection(store.get_annotations_feature_collection(), parse_bbox(bbox))
-
-
-@router.get("/detections", response_model=LayerFeatureCollection)
-def get_detection_layer(
-    bbox: str | None = Query(default=None),
-    store: AppStore = Depends(get_store),
-):
-    return filter_feature_collection(store.get_detections_feature_collection(), parse_bbox(bbox))

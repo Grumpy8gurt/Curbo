@@ -4,11 +4,6 @@ import type {
   AnnotationFeatureCollection
 } from "../types/annotations";
 import type { CorridorSummary } from "../types/corridors";
-import type {
-  DetectionFeature,
-  DetectionFeatureCollection,
-  DetectionReviewStatus
-} from "../types/detections";
 import type { Position } from "../types/geojson";
 import type {
   CurbRampFeatureCollection,
@@ -132,8 +127,6 @@ const emptyPoints = (): PlaceholderFeatureCollection => ({
 });
 
 let annotationCounter = 3;
-let detectionCounter = 2;
-let uploadCounter = 0;
 let reportCounter = 0;
 
 let annotations: AnnotationFeatureCollection = {
@@ -151,26 +144,6 @@ let annotations: AnnotationFeatureCollection = {
       latitude: 44.0493,
       longitude: -123.0874
     }, "ann_002", "2026-07-05T15:10:00Z")
-  ]
-};
-
-let detections: DetectionFeatureCollection = {
-  type: "FeatureCollection",
-  features: [
-    createDetectionFeature([-123.0906, 44.0517], {
-      detection_id: "det_001",
-      label: "Possible missing curb cut",
-      confidence: 0.87,
-      review_status: "pending",
-      source: "mock-model"
-    }),
-    createDetectionFeature([-123.0872, 44.0496], {
-      detection_id: "det_002",
-      label: "Possible curb ramp retrofit",
-      confidence: 0.71,
-      review_status: "confirmed",
-      source: "mock-model"
-    })
   ]
 };
 
@@ -230,21 +203,6 @@ function createAnnotationFeature(
   };
 }
 
-function createDetectionFeature(
-  coordinates: Position,
-  properties: DetectionFeature["properties"]
-): DetectionFeature {
-  return {
-    type: "Feature",
-    id: properties.detection_id,
-    properties,
-    geometry: {
-      type: "Point",
-      coordinates
-    }
-  };
-}
-
 export function getMockRoads(): RoadFeatureCollection {
   return roads;
 }
@@ -259,10 +217,6 @@ export function getMockHydrants(): HydrantFeatureCollection {
 
 export function getMockAnnotations(): AnnotationFeatureCollection {
   return annotations;
-}
-
-export function getMockDetections(): DetectionFeatureCollection {
-  return detections;
 }
 
 export function getMockPlaceholderLayer(): PlaceholderFeatureCollection {
@@ -295,65 +249,6 @@ export function getMockCorridorSummary(roadId: string): CorridorSummary {
   );
 }
 
-export function createMockUpload(file: File) {
-  uploadCounter += 1;
-  return {
-    uploadId: `upl_${String(uploadCounter).padStart(3, "0")}`,
-    filename: file.name,
-    status: "stored" as const
-  };
-}
-
-export function createMockDetectionFromUpload(uploadId: string): DetectionFeature {
-  detectionCounter += 1;
-  const feature = createDetectionFeature(
-    [-123.088 + Math.random() * 0.005, 44.05 + Math.random() * 0.004],
-    {
-      detection_id: `det_${String(detectionCounter).padStart(3, "0")}`,
-      label: "Uploaded image curb-cut candidate",
-      confidence: 0.64 + Math.random() * 0.2,
-      review_status: "pending",
-      source: "mock-model",
-      upload_id: uploadId
-    }
-  );
-
-  detections = {
-    ...detections,
-    features: [feature, ...detections.features]
-  };
-
-  return feature;
-}
-
-export function updateMockDetectionStatus(
-  detectionId: string,
-  status: DetectionReviewStatus
-): DetectionFeature | undefined {
-  let updatedFeature: DetectionFeature | undefined;
-
-  detections = {
-    ...detections,
-    features: detections.features.map((feature) => {
-      if (feature.properties.detection_id !== detectionId) {
-        return feature;
-      }
-
-      updatedFeature = {
-        ...feature,
-        properties: {
-          ...feature.properties,
-          review_status: status
-        }
-      };
-
-      return updatedFeature;
-    })
-  };
-
-  return updatedFeature;
-}
-
 export function createMockReport(corridorId: string, roadName: string): CorridorReportResult {
   reportCounter += 1;
   const reportId = `rep_${String(reportCounter).padStart(3, "0")}`;
@@ -361,6 +256,6 @@ export function createMockReport(corridorId: string, roadName: string): Corridor
     reportId,
     roadId: corridorId,
     downloadUrl: `/api/reports/${reportId}/download`,
-    summary: `${roadName} corridor report queued successfully. Mock export includes counts, notes, and detection review status.`
+    summary: `${roadName} corridor report queued successfully. Mock export includes counts and planning notes.`
   };
 }

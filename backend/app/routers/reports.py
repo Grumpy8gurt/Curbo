@@ -21,14 +21,14 @@ def create_corridor_report(
     analysis = analyze_corridor(store, payload.road_id, buffer_meters=30)
     summary_message = (
         f"{analysis.name} corridor report queued successfully. "
-        "Mock export includes counts, notes, and detection review status."
+        "Mock export includes counts, notes, and annotation status."
     )
     report_id = store.next_id("report")
     report_path = generate_corridor_report(
         settings.resolved_report_dir,
         report_id=report_id,
         summary=analysis.model_dump(),
-        include_layers=["roads", "curbRamps", "hydrants", "annotations", "detections"],
+        include_layers=["roads", "curbRamps", "hydrants", "annotations"],
     )
     store.create_report(
         {

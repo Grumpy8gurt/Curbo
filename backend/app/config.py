@@ -16,9 +16,7 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     backend_port: int = 8000
-    upload_dir: str = "uploads"
     report_dir: str = "generated_reports"
-    ml_service_url: str = "http://localhost:9000/detect"
     database_url: str | None = None
     cors_origins: list[str] = Field(
         default_factory=lambda: [
@@ -59,13 +57,6 @@ class Settings(BaseSettings):
             if candidate.exists():
                 return candidate
         return project_sample_dir
-
-    @property
-    def resolved_upload_dir(self) -> Path:
-        upload_path = Path(self.upload_dir)
-        if upload_path.is_absolute():
-            return upload_path
-        return self.backend_root / upload_path
 
     @property
     def resolved_report_dir(self) -> Path:

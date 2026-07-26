@@ -2,10 +2,6 @@ import type {
   AnnotationFeature,
   AnnotationProperties
 } from "../types/annotations";
-import type {
-  DetectionFeature,
-  DetectionProperties
-} from "../types/detections";
 import type { Feature, Geometry, LineStringGeometry, Position } from "../types/geojson";
 import type {
   CurbRampProperties,
@@ -22,7 +18,6 @@ export interface SelectedFeatureDetails {
   subtitle: string;
   source: string;
   status?: string;
-  confidence?: number;
   notes?: string;
   coordinates: Position;
 }
@@ -62,8 +57,6 @@ export function toSelectedFeatureDetails(
       );
     case "annotations":
       return fromAnnotationFeature(feature as unknown as AnnotationFeature);
-    case "detections":
-      return fromDetectionFeature(feature as unknown as DetectionFeature);
     default:
       return {
         id: String(feature.id ?? "unknown"),
@@ -131,21 +124,6 @@ function fromAnnotationFeature(feature: AnnotationFeature): SelectedFeatureDetai
     source: properties.source,
     status: properties.status,
     notes: properties.description,
-    coordinates: getFeatureCenter(feature.geometry)
-  };
-}
-
-function fromDetectionFeature(feature: DetectionFeature): SelectedFeatureDetails {
-  const properties = feature.properties as DetectionProperties;
-
-  return {
-    id: properties.detection_id,
-    layerId: "detections",
-    title: properties.label,
-    subtitle: "AI detection",
-    source: properties.source,
-    status: properties.review_status,
-    confidence: properties.confidence,
     coordinates: getFeatureCenter(feature.geometry)
   };
 }
