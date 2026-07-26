@@ -65,11 +65,12 @@ Sprint 2 results above are retained as historical evidence. Sprint 3 verificatio
 
 - `cd backend && pytest`
 - `cd frontend && npm run build`
+- `cd frontend && npm audit`
 - `python scripts/validate_geojson.py`
 - `python scripts/fetch_eugene_data.py` (offline/cache-preservation path)
 - `docker compose config`
 
-The final repository review produced 12 passing backend tests, a successful frontend production build, 7 valid GeoJSON files, a successful cache-only refresh check, and a valid Compose configuration. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
+The final repository review produced 12 passing backend tests, a successful frontend production build, zero reported npm vulnerabilities, 7 valid GeoJSON files, a successful cache-only refresh check, and a valid Compose configuration. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
 
 ### Sprint 3 Issues Discovered and Resolved
 
@@ -80,6 +81,7 @@ The final repository review produced 12 passing backend tests, a successful fron
 | Eugene bikeway data includes `MultiLineString` features. | Add backend and frontend geometry support plus bbox handling for both line types. | Layer tests and the production TypeScript build passed. |
 | A broad `models/` ignore rule excluded required SQLAlchemy modules from repository history. | Scope artifact ignores to repository-root directories and track `backend/app/models/`. | A tracked-files audit and clean-tree test run confirmed the runtime package is complete. |
 | Local services started in subdirectories and did not consistently discover the root `.env` file. | Configure FastAPI settings and Vite to read the repository-root environment file. | Backend tests and the frontend production build passed with the shared configuration. |
+| The clean-clone npm audit reported three vulnerabilities in the older Vite development toolchain. | Upgrade Vite and its React plugin to current releases. | The production build passed and `npm audit` reported zero vulnerabilities. |
 | The first manual server commands inherited the wrong shell working directory. | Use explicit `cd backend` and `cd frontend` commands, matching the README. | Both services subsequently started and completed browser verification. |
 
 ### Remaining Limitations
