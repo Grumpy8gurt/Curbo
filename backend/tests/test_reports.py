@@ -12,4 +12,4 @@ def test_report_endpoint_returns_summary_and_download(client):
 
     download_response = client.get(payload["downloadUrl"])
     assert download_response.status_code == 200
-    assert "Curbo Corridor Report" in download_response.text
+    assert "CURBO Corridor Report" in download_response.text

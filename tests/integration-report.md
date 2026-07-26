@@ -1,4 +1,4 @@
-# Curb Goblin 3000 Integration Report
+# CURBO Integration Report (Sprint 2)
 
 ## Summary
 

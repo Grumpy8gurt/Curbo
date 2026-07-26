@@ -60,7 +60,7 @@ const LAYER_IDS = {
 
 const LOCAL_MAP_STYLE: StyleSpecification = {
   version: 8,
-  name: "Curbo local style",
+  name: "CURBO local style",
   sources: {},
   layers: [
     {

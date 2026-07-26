@@ -25,7 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     application = FastAPI(
-        title="Curbo Backend API",
+        title="CURBO Backend API",
         version=resolved_settings.version,
         lifespan=lifespan,
     )

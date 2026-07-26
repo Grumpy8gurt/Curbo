@@ -1,6 +1,6 @@
 # Frontend
 
-This frontend is a mock-first React + TypeScript + Vite dashboard for Curbo. It is designed to run independently while still matching the planned API surface in `docs/api-contract.md`.
+This frontend is a React + TypeScript + Vite dashboard for CURBO. It is designed to run independently while still matching the planned API surface in `docs/api-contract.md`.
 
 ## Run locally
 

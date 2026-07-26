@@ -1,6 +1,6 @@
-# Curbo Backend
+# CURBO Backend
 
-This backend provides the MVP API for Curbo, the sidewalk surveying and management dashboard. It serves map-ready GeoJSON layers, accepts planner annotations, and generates lightweight corridor reports for frontend integration.
+This backend provides the MVP API for CURBO, the sidewalk surveying and management dashboard. It serves map-ready GeoJSON layers, accepts planner annotations, and generates lightweight corridor reports for frontend integration.
 
 ## Stack
 

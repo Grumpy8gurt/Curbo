@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Sidewalk Surveying and Management Dashboard (Curbo) is planned as a geospatial web platform for viewing city infrastructure layers, collecting annotations, and evaluating corridors.
+Sidewalk Surveying and Management Dashboard (CURBO) is planned as a geospatial web platform for viewing city infrastructure layers, collecting annotations, and evaluating corridors.
 
 ## Component Diagram
 
