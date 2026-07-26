@@ -377,6 +377,14 @@ button {
   color: #0c5e4b;
 }
 
+.error-callout {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(189, 59, 47, 0.12);
+  color: #8d251d;
+}
+
 .assumption-list {
   margin: 0;
   padding-left: 18px;

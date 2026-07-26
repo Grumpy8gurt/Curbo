@@ -83,7 +83,7 @@ docker compose config
 
 ## Sprint 3 Submission Summary
 
-- GitHub repository URL: TODO
+- GitHub repository URL: https://github.com/Grumpy8gurt/Curbo
 - Sprint 3 branch name: `sprint-3-prototype`
 - Sprint 3 expansion: CURBO integrates City of Eugene GIS-style infrastructure data and removes the ML layer to focus on a cleaner geospatial planning dashboard.
 - Demo sentence: Run the backend and frontend, open the CURBO dashboard, toggle Eugene infrastructure layers, add an annotation, and view a corridor summary.

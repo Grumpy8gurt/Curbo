@@ -3,6 +3,8 @@ export const API_BASE_URL =
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === "true";
 
+class ApiRequestError extends Error {}
+
 export async function resolveFallback<T>(value: T, delayMs = 180): Promise<T> {
   await new Promise((resolve) => window.setTimeout(resolve, delayMs));
   return deepClone(value);
@@ -27,10 +29,16 @@ export async function fetchJsonWithFallback<T>(
   try {
     const response = await fetch(apiUrl(path), init);
     if (!response.ok) {
+      if (init?.method && init.method !== "GET" && response.status < 500) {
+        throw new ApiRequestError(`${response.status} ${response.statusText}`);
+      }
       throw new Error(`${response.status} ${response.statusText}`);
     }
     return (await response.json()) as T;
   } catch (error) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
     console.warn(`CURBO API unavailable for ${path}; using local fallback.`, error);
     return resolveFallback(fallbackValue(), 40);
   }

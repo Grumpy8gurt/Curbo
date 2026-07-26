@@ -16,8 +16,8 @@ class AnnotationCreate(BaseModel):
         validation_alias=AliasChoices("annotationType", "annotation_type", "type")
     )
     description: str = Field(min_length=1, max_length=2000)
-    latitude: float | None = None
-    longitude: float | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     geometry: PointGeometry | None = None
     source: str = Field(default="planner", min_length=1, max_length=64)
 

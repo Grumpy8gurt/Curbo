@@ -30,11 +30,12 @@ postgres-data/
 
 reports/
 generated-reports/
+backend/generated_reports/*.html
 backend/data/annotations.json
 
-models/
-checkpoints/
-weights/
+/models/
+/checkpoints/
+/weights/
 *.ckpt
 *.pt
 *.pth

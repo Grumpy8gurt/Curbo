@@ -69,4 +69,22 @@ Sprint 2 results above are retained as historical evidence. Sprint 3 verificatio
 - `python scripts/fetch_eugene_data.py` (offline/cache-preservation path)
 - `docker compose config`
 
-The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. Full Docker runtime startup remains dependent on a locally running Docker daemon.
+The final repository review produced 12 passing backend tests, a successful frontend production build, 7 valid GeoJSON files, a successful cache-only refresh check, and a valid Compose configuration. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
+
+### Sprint 3 Issues Discovered and Resolved
+
+| Issue discovered | Resolution | Verification |
+|---|---|---|
+| The frontend annotation request used an underscored type that the backend rejected with HTTP 422. | Send the documented `annotationType`, latitude, and longitude contract. | Browser creation succeeded and the record survived a backend restart. |
+| Map data could arrive before the MapLibre style finished loading, leaving sources empty. | Track map readiness and synchronize source data after the load event. | Browser verification showed loaded layer counts and working feature/corridor interactions. |
+| Eugene bikeway data includes `MultiLineString` features. | Add backend and frontend geometry support plus bbox handling for both line types. | Layer tests and the production TypeScript build passed. |
+| A broad `models/` ignore rule excluded required SQLAlchemy modules from repository history. | Scope artifact ignores to repository-root directories and track `backend/app/models/`. | A tracked-files audit and clean-tree test run confirmed the runtime package is complete. |
+| Local services started in subdirectories and did not consistently discover the root `.env` file. | Configure FastAPI settings and Vite to read the repository-root environment file. | Backend tests and the frontend production build passed with the shared configuration. |
+| The first manual server commands inherited the wrong shell working directory. | Use explicit `cd backend` and `cd frontend` commands, matching the README. | Both services subsequently started and completed browser verification. |
+
+### Remaining Limitations
+
+- The JSON annotation store is designed for a single-user prototype and does not provide concurrent-write coordination.
+- Eugene layers are committed extracts; a refresh may produce larger files as the public services change.
+- PostGIS is initialized for future work but the Sprint 3 layer path intentionally uses cached GeoJSON.
+- Full Docker runtime startup still requires a local Docker daemon; Compose configuration itself validates.

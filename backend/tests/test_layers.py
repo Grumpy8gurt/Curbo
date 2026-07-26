@@ -41,3 +41,24 @@ def test_bike_lanes_layer_returns_feature_collection(client):
         feature["geometry"]["type"] in {"LineString", "MultiLineString"}
         for feature in payload["features"]
     )
+
+
+def test_layer_bbox_filter_preserves_metadata(client):
+    unfiltered = client.get("/api/layers/roads").json()
+    longitude, latitude = unfiltered["features"][0]["geometry"]["coordinates"][0]
+    delta = 0.0001
+
+    response = client.get(
+        "/api/layers/roads",
+        params={
+            "bbox": (
+                f"{longitude - delta},{latitude - delta},"
+                f"{longitude + delta},{latitude + delta}"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert 1 <= len(payload["features"]) <= len(unfiltered["features"])
+    assert payload["metadata"]["status"] == "cached-eugene"
