@@ -1,69 +1,65 @@
-# Architecture Overview
+# CURBO Architecture Overview
 
-## System Overview
+## Sprint 3 Evolution
 
-Sidewalk Surveying and Management Dashboard (Curbo) is planned as a geospatial web platform for viewing city infrastructure layers, collecting annotations, evaluating corridors, and eventually assisting curb-cut review from imagery.
+Sprint 2 established the React/MapLibre frontend, FastAPI routes, sample GeoJSON layers, annotations, corridor summaries, and HTML reports. Sprint 3 keeps that foundation but replaces the mock-first layer path with normalized, cached City of Eugene GIS data. It also removes the active ML and image-upload architecture.
 
-## Component Diagram
+## Runtime Architecture
 
 ```text
-Users
-  -> Frontend (React + TypeScript dashboard)
-    -> Backend API (FastAPI)
-      -> PostgreSQL + PostGIS
-      -> File/object storage for uploads (future)
-      -> ML service for curb-cut detection (mockable at first)
+City of Eugene ArcGIS query URLs (optional refresh)
+  -> scripts/fetch_eugene_data.py
+  -> data/eugene/*.geojson (committed offline cache)
+  -> EugeneDataService normalization
+  -> FastAPI /api/layers/* and corridor analysis
+  -> React + TypeScript + MapLibre dashboard
 
-External GeoJSON / city datasets
-  -> Data ingestion scripts and backend import workflows
-    -> PostgreSQL + PostGIS
+Frontend API failure
+  -> compact local TypeScript fallback data
 
-Backend
-  -> Report generation pipeline (future HTML/PDF outputs)
+POST /api/annotations
+  -> AppStore
+  -> backend/data/annotations.json
 ```
+
+PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the Sprint 3 runtime does not require a database or import the Eugene cache into PostGIS.
 
 ## Frontend Responsibilities
 
-- Render the map dashboard and layer toggles
-- Display GeoJSON layers and corridor summaries
-- Support annotation creation and editing workflows
-- Upload images for future detection workflows
-- Surface backend and ML results to planners
+- Center the planning map on Eugene, Oregon.
+- Render roads, sidewalk ramps, fire hydrants, bike facilities, and annotations.
+- Show feature counts and a clear unavailable state for empty layers.
+- Use backend APIs by default and compact local fallbacks when the API cannot be reached.
+- Support annotation creation and corridor selection without ML-oriented UI.
 
 ## Backend Responsibilities
 
-- Expose REST endpoints for health, layers, annotations, uploads, and reporting
-- Validate request payloads and shape GeoJSON responses
-- Coordinate spatial queries and corridor analysis
-- Manage authentication/authorization later if added
-- Provide an integration boundary to the ML service
+- Serve stable, validated GeoJSON FeatureCollections under `/api`.
+- Keep `/api/layers/curb-ramps` as an alias for `/api/layers/sidewalk-ramps`.
+- Normalize source-specific Eugene fields into frontend-facing properties.
+- Filter layers by optional bounding box and calculate lightweight corridor metrics.
+- Persist annotations and generate simple HTML corridor reports.
 
-## Database Responsibilities
+## Data Layer Responsibilities
 
-- Store infrastructure geometry and related metadata
-- Support PostGIS spatial indexing and queries
-- Persist user annotations, uploads, detections, and generated report metadata
-- Serve as the source of truth for corridor analysis inputs
+- `data/eugene/` is the normal runtime source for roads, sidewalk ramps, hydrants, and bike lanes.
+- `data/sample/` is retained as a compact backend fallback and as Sprint 1/2 evidence.
+- `scripts/fetch_eugene_data.py` performs an optional, API-key-free cache refresh from configured URLs.
+- `scripts/validate_geojson.py` validates both Eugene and sample datasets.
+- The application never requires a live external GIS service at startup.
 
-## ML Responsibilities
+## Persistence Choice
 
-- Accept uploaded or referenced street-level imagery
-- Return curb-cut detection results and confidence metadata
-- Stay mockable during MVP so UI and backend work can proceed independently
+Sprint 3 uses an atomic JSON-file write for user annotations at `backend/data/annotations.json`. This is intentionally lightweight, easy to inspect, and sufficient for a single-user prototype. Docker mounts named volumes for annotations and generated HTML reports. PostgreSQL/PostGIS remains a future migration path rather than a Sprint 3 requirement.
 
-## Data Ingestion Responsibilities
+## Removed ML Responsibility
 
-- Normalize source datasets into a shared GeoJSON-oriented pipeline
-- Load infrastructure layers into PostGIS tables
-- Preserve source lineage and refresh workflows for updated city data
+The ML service, image-upload path, detection endpoints, model dependencies, map layer, and review UI are not part of the active architecture. This is a deliberate scope decision: Sprint 3 focuses on civic GIS integration and clearer frontend/backend boundaries.
 
-## Report Generation Responsibilities
+## Remaining Architectural Questions
 
-- Assemble corridor summaries from spatial query results
-- Produce HTML first and PDF later
-- Capture key counts, findings, and map/context snapshots
-
-## MVP Boundaries
-
-- Include only the map dashboard, layer viewing, basic spatial queries, annotations, mocked image upload/detection, and corridor summary planning
-- Exclude full production auth, advanced analytics, live model operations, and polished report rendering for now
+- Whether Eugene layers should eventually be imported into PostGIS for indexed spatial queries.
+- Whether annotation persistence should move from JSON to PostgreSQL for concurrent users.
+- Which public GIS service URLs and refresh cadence should be treated as production sources.
+- Whether a hosted basemap and server-side map tiles are needed for larger datasets.
+- How authentication, data provenance, and dataset licensing should be handled before deployment.

@@ -1,6 +1,20 @@
-# Planned Data Model
+# CURBO Data Model
 
-The database will use PostgreSQL with PostGIS. Table definitions are still to be implemented, but these are the intended domain tables and geometry expectations.
+Sprint 3 serves normalized City of Eugene GeoJSON directly from the local cache. PostgreSQL/PostGIS remains the planned long-term infrastructure store, but it is not required for layer rendering in the current prototype.
+
+## Sprint 3 Runtime Data
+
+- `data/eugene/roads.geojson` maps source identifiers and names to `road_id`, `name`, and `classification`.
+- `data/eugene/sidewalk_ramps.geojson` maps the City ramp inventory to `ramp_id`, `status`, `condition`, and `configuration`. The backend keeps `/api/layers/curb-ramps` as a compatibility alias.
+- `data/eugene/hydrants.geojson` maps source identifiers to `hydrant_id`, `owner`, and `flow_class`.
+- `data/eugene/bike_lanes.geojson` maps bicycle facilities to `bike_lane_id`, `name`, `facility_type`, and `status`.
+- User annotations persist as GeoJSON-compatible records in `backend/data/annotations.json` using atomic replacement writes.
+
+The JSON annotation store is intentionally single-user. It provides demonstrable persistence without introducing a database migration into the civic-data integration scope.
+
+## Planned PostGIS Model
+
+The future database can use the following domain tables and geometry expectations.
 
 ## Core Infrastructure Tables
 
@@ -18,6 +32,4 @@ The database will use PostgreSQL with PostGIS. Table definitions are still to be
 ## User and Workflow Tables
 
 - `annotations`: planner-created notes, flags, or sketch geometry; suggested geometry type `GEOMETRY` to allow points, lines, and polygons
-- `detections`: curb-cut detection outputs with confidence and review status; suggested geometry type `POINT` or `POLYGON`
-- `uploaded_images`: metadata for uploaded street-level imagery and storage references; suggested geometry type `POINT` when geolocated, nullable at first
 - `corridor_reports`: generated summary records and artifact metadata; suggested geometry type `LINESTRING` or `POLYGON` for corridor footprint, nullable if stored indirectly

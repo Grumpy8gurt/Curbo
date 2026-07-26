@@ -1,6 +1,6 @@
 # API Contract
 
-This document reflects the current verified MVP integration contract.
+This document reflects the verified CURBO Sprint 3 integration contract.
 
 ## Backend Routes
 
@@ -16,23 +16,31 @@ This document reflects the current verified MVP integration contract.
 ### `GET /api/layers/roads`
 
 - Response: GeoJSON `FeatureCollection`
-- Road ids use the sample-data shape, for example `rd_001`
+- Road ids use the normalized Eugene shape, for example `road_20000641`
+
+### `GET /api/layers/sidewalk-ramps`
+
+- Response: GeoJSON `FeatureCollection`
 
 ### `GET /api/layers/curb-ramps`
 
-- Response: GeoJSON `FeatureCollection`
+- Compatibility alias for `/api/layers/sidewalk-ramps`
 
 ### `GET /api/layers/hydrants`
 
 - Response: GeoJSON `FeatureCollection`
 
+### `GET /api/layers/bike-lanes`
+
+- Response: GeoJSON `FeatureCollection` containing `LineString` or `MultiLineString` features
+
 ### `GET /api/layers/annotations`
 
 - Response: GeoJSON `FeatureCollection`
 
-### `GET /api/layers/detections`
-
-- Response: GeoJSON `FeatureCollection`
+All infrastructure layer routes accept an optional
+`bbox=minLng,minLat,maxLng,maxLat` query. Bounds must be finite and ordered;
+points or line segments intersecting the box are returned.
 
 ### `GET /api/annotations`
 
@@ -94,7 +102,7 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "roadId": "rd_001"
+  "roadId": "road_20000641"
 }
 ```
 
@@ -102,85 +110,22 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "corridorId": "cor_rd_001",
-  "roadId": "rd_001",
-  "name": "Willamette Street",
+  "corridorId": "cor_road_20000641",
+  "roadId": "road_20000641",
+  "name": "BROADWAY",
   "knownCurbRamps": 2,
   "possibleMissingCurbCuts": 2,
   "hydrantsNearby": 1,
-  "busStopsNearby": 1,
-  "parkingConflicts": 2,
+  "bikeLanesNearby": 1,
+  "userAnnotationsNearby": 1,
+  "busStopsNearby": 0,
+  "parkingConflicts": 0,
   "bikeLaneFeasibility": "Medium",
   "planningNotes": [
     "Possible missing curb cuts near the selected corridor should be field-checked."
   ]
 }
 ```
-
-### `POST /api/uploads/images`
-
-- Request: `multipart/form-data` with field `image` or `file`
-- Response:
-
-```json
-{
-  "uploadId": "upl_001",
-  "filename": "street-view.jpg",
-  "status": "stored"
-}
-```
-
-### `GET /api/detection/curb-cuts`
-
-- Purpose: return all detections as a map-ready GeoJSON `FeatureCollection`
-
-### `POST /api/detection/curb-cuts`
-
-- Request:
-
-```json
-{
-  "upload_id": "upl_001"
-}
-```
-
-- Response: one detection `Feature`
-
-```json
-{
-  "type": "Feature",
-  "id": "det_003",
-  "properties": {
-    "detection_id": "det_003",
-    "label": "possible_curb_cut",
-    "confidence": 0.71,
-    "review_status": "pending",
-    "upload_id": "upl_001",
-    "source": "ml-service",
-    "bbox": [125, 126, 195, 162]
-  },
-  "geometry": {
-    "type": "Point",
-    "coordinates": [-123.0868, 44.0521]
-  }
-}
-```
-
-### `PATCH /api/detection/{detection_id}`
-
-- Request:
-
-```json
-{
-  "review_status": "confirmed"
-}
-```
-
-- Response: one detection `Feature`
-
-### `PATCH /api/detections/{detection_id}`
-
-- Compatibility alias for the same detection update behavior
 
 ### `POST /api/reports/corridor`
 
@@ -189,7 +134,7 @@ This document reflects the current verified MVP integration contract.
 
 ```json
 {
-  "corridor_id": "rd_001",
+  "corridor_id": "road_20000641",
   "format": "html"
 }
 ```
@@ -199,47 +144,12 @@ This document reflects the current verified MVP integration contract.
 ```json
 {
   "reportId": "rep_001",
-  "roadId": "rd_001",
+  "roadId": "road_20000641",
   "downloadUrl": "/api/reports/rep_001/download",
-  "summary": "Willamette Street corridor report queued successfully. Mock export includes counts, notes, and detection review status."
+  "summary": "BROADWAY corridor report queued successfully. Export includes counts and planning notes."
 }
 ```
 
 ### `GET /api/reports/{reportId}/download`
 
 - Purpose: download the generated HTML report
-
-## ML Routes
-
-### `GET /health`
-
-```json
-{
-  "status": "ok",
-  "service": "curbo-ml"
-}
-```
-
-### `POST /detect`
-
-- Request: `multipart/form-data` with `file` plus optional `image_id`, `latitude`, `longitude`, `road_id`, and `source`
-- Response:
-
-```json
-{
-  "image_id": "upl_001",
-  "model_version": "mock-v0.1",
-  "detections": [
-    {
-      "label": "possible_curb_cut",
-      "confidence": 0.71,
-      "bbox": [125, 126, 195, 162],
-      "estimated_location": {
-        "type": "Point",
-        "coordinates": [-123.0868, 44.0521]
-      },
-      "review_status": "pending"
-    }
-  ]
-}
-```

@@ -1,1 +1,1 @@
-"""Service layer for Curbo backend."""
+"""Service layer for the CURBO backend."""

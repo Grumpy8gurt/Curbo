@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies import get_store
 from app.schemas.corridors import CorridorAnalysisRequest, CorridorAnalysisResponse
-from app.services.mock_data import AppStore
+from app.services.app_store import AppStore
 from app.services.spatial_queries import analyze_corridor
 
 router = APIRouter(prefix="/corridors", tags=["corridors"])

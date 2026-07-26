@@ -312,20 +312,6 @@ button {
   transform: none;
 }
 
-.upload-dropzone {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border: 1px dashed rgba(23, 50, 77, 0.25);
-  border-radius: 18px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.upload-dropzone input {
-  width: 100%;
-}
-
 .info-card,
 .summary-card {
   padding: 14px;
@@ -389,6 +375,23 @@ button {
   border-radius: 14px;
   background: rgba(47, 191, 155, 0.14);
   color: #0c5e4b;
+}
+
+.success-callout p {
+  margin: 0 0 6px;
+}
+
+.success-callout a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.error-callout {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(189, 59, 47, 0.12);
+  color: #8d251d;
 }
 
 .assumption-list {

@@ -15,10 +15,12 @@ const DEFAULT_FORM: AnnotationDraft = {
 export function AnnotationTool({ onCreate }: AnnotationToolProps) {
   const [form, setForm] = useState<AnnotationDraft>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
+    setErrorMessage(null);
 
     try {
       await onCreate(form);
@@ -26,6 +28,8 @@ export function AnnotationTool({ onCreate }: AnnotationToolProps) {
         ...DEFAULT_FORM,
         description: ""
       });
+    } catch {
+      setErrorMessage("The annotation could not be saved. Check the values and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -75,6 +79,8 @@ export function AnnotationTool({ onCreate }: AnnotationToolProps) {
             className="text-input"
             type="number"
             step="0.0001"
+            min="-90"
+            max="90"
             value={form.latitude}
             onChange={(event) =>
               setForm((current) => ({
@@ -91,6 +97,8 @@ export function AnnotationTool({ onCreate }: AnnotationToolProps) {
             className="text-input"
             type="number"
             step="0.0001"
+            min="-180"
+            max="180"
             value={form.longitude}
             onChange={(event) =>
               setForm((current) => ({
@@ -106,6 +114,7 @@ export function AnnotationTool({ onCreate }: AnnotationToolProps) {
       <button className="primary-button" type="submit" disabled={submitting}>
         {submitting ? "Saving..." : "Add annotation"}
       </button>
+      {errorMessage ? <p className="error-callout">{errorMessage}</p> : null}
     </form>
   );
 }

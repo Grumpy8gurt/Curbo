@@ -8,9 +8,9 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Starting local development dependencies for Curbo..."
+echo "Starting local development dependencies for CURBO..."
 echo "This scaffold currently provisions only the PostGIS database."
-echo "Future frontend, backend, and ML startup steps will be added by specialized agents."
+echo "Frontend and backend services can be started using their local development instructions."
 
 docker compose up -d postgres
 

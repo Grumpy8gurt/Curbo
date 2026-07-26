@@ -1,26 +1,32 @@
-# Curbo
+# CURBO
 
-Sidewalk Surveying and Management Dashboard
+**Sidewalk Surveying and Management Dashboard**
 
-Curbo is a geospatial planning dashboard for city planners, civil engineers, transportation planners, and surveyors. It visualizes roads, curb ramps, hydrants, planner annotations, corridor summaries, uploaded street images, and mock AI curb-cut detections.
+CURBO is a geospatial planning dashboard for reviewing street, pedestrian, bicycle, and civic infrastructure around Eugene, Oregon.
 
-## What The App Does
+## Sprint 3 Expansion
 
-- `frontend/`: React + TypeScript dashboard with a MapLibre planning UI
-- `backend/`: FastAPI API serving GeoJSON layers, annotations, uploads, detections, and corridor reports
-- `ml/`: FastAPI mock detection service with a stable `/detect` interface for future model integration
-- `postgres`: PostGIS-ready local database for the long-term architecture
+Sprint 3 integrates a local cache of City of Eugene GIS infrastructure data, adds offline-safe data refresh and validation scripts, serves normalized layers through FastAPI, and uses lightweight JSON persistence for user annotations. The previous ML workflow was removed from Sprint 3 scope so the prototype can focus on maintainable civic-data integration.
 
-## Local Development
+## Current Behavior
 
-1. Copy `.env.example` to `.env`.
-2. Start Postgres:
+- Displays cached Eugene roads, sidewalk ramps, fire hydrants, and bike facilities.
+- Uses stable backend layer endpoints with `/api/layers/curb-ramps` retained as an alias.
+- Falls back to small frontend samples if the backend is unavailable.
+- Persists backend annotations in `backend/data/annotations.json`.
+- Calculates a simple corridor summary from nearby Eugene layers and user annotations.
+
+## Run Locally
+
+Copy `.env.example` to `.env`. PostGIS is optional scaffolding and can be started with its Compose profile:
 
 ```bash
-docker compose up -d postgres
+docker compose --profile database up -d postgres
 ```
 
-3. Start the backend:
+The Sprint 3 runtime does not require PostGIS. Set `DATABASE_URL` only when explicitly testing the future database path.
+
+Start the backend:
 
 ```bash
 cd backend
@@ -30,17 +36,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-4. Start the ML service:
-
-```bash
-cd ml
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 9000
-```
-
-5. Start the frontend:
+Start the frontend in another terminal:
 
 ```bash
 cd frontend
@@ -48,30 +44,48 @@ npm install
 npm run dev
 ```
 
-6. To exercise the live backend from the frontend, set `VITE_USE_MOCK_API=false` in the frontend environment.
+Open `http://localhost:5173`. The frontend calls `http://localhost:8000` by default. Set `VITE_USE_MOCK_API=true` only when intentionally testing the local fallback.
 
-## What Is Mocked
+## Eugene Data Tools
 
-- Backend map layers load from `data/sample/*.geojson`
-- Backend annotations, uploads, detections, and report metadata are stored in memory for MVP integration work
-- ML detections are mocked but returned in a stable response shape
-- Frontend runs in local mock mode by default via `VITE_USE_MOCK_API=true`
-- Set `VITE_USE_MOCK_API=false` to exercise the live backend API that now matches the frontend fetch contract
+The committed cache in `data/eugene/` keeps the demo runnable without network access.
 
-## What Remains Future Work
+```bash
+python scripts/validate_geojson.py
+python scripts/fetch_eugene_data.py
+```
 
-- Real PostGIS-backed persistence and spatial analysis
-- Replacing mock ML detections with model inference
-- Richer report export and report assets
-- More complete infrastructure layers such as parcels, bike lanes, and bus stops
-- Full end-to-end Dockerized frontend workflow
+The fetch script uses documented public City endpoints, allows `EUGENE_*_URL` overrides, and preserves existing cache files when the network fails. Set `EUGENE_CACHE_ONLY=true` to skip network requests. It uses only Python's standard library and requires no API key.
 
-## Repository Layout
+## Tests
 
-- `docs/`: architecture, API contract, data model, and agent notes
-- `frontend/`: Vite + React planning dashboard
-- `backend/`: FastAPI MVP API
-- `ml/`: FastAPI mock ML service
-- `data/`: sample GeoJSON and future import data
-- `scripts/`: local setup helpers
-- `tests/`: integration reports and future shared validation
+```bash
+cd backend && pytest
+cd frontend && npm run build
+python scripts/validate_geojson.py
+docker compose config
+```
+
+## Architecture and Dependencies
+
+- `frontend/`: React, TypeScript, Vite, and MapLibre.
+- `backend/`: FastAPI, Pydantic, and SQLAlchemy.
+- `data/eugene/`: cached civic infrastructure GeoJSON.
+- `data/sample/`: compact offline fallback GeoJSON retained from earlier sprints.
+- `scripts/`: safe fetch and validation utilities.
+- `postgres`: PostGIS-ready service retained for future persistence work.
+
+## Intentionally Not Included
+
+- ML inference, image upload, or detection-review UI.
+- Production authentication and authorization.
+- Full PostGIS ingestion or production-grade spatial analysis.
+- Live external GIS requests during normal app startup.
+- PDF report rendering.
+
+## Sprint 3 Submission Summary
+
+- GitHub repository URL: https://github.com/Grumpy8gurt/Curbo
+- Sprint 3 branch name: `sprint-3-prototype`
+- Sprint 3 expansion: CURBO integrates City of Eugene GIS-style infrastructure data and removes the ML layer to focus on a cleaner geospatial planning dashboard.
+- Demo sentence: Run the backend and frontend, open the CURBO dashboard, toggle Eugene infrastructure layers, add an annotation, and view a corridor summary.

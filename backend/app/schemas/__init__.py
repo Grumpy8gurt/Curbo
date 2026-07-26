@@ -5,17 +5,8 @@ from app.schemas.annotations import (
     AnnotationUpdate,
 )
 from app.schemas.corridors import CorridorAnalysisRequest, CorridorAnalysisResponse
-from app.schemas.detections import (
-    DetectionFeatureCollectionResponse,
-    DetectionFeatureResponse,
-    DetectionItem,
-    DetectionRequest,
-    DetectionResponse,
-    DetectionUpdate,
-)
 from app.schemas.geojson import FeatureCollection, Geometry, LineStringGeometry, PointGeometry
 from app.schemas.reports import CorridorReportRequest, CorridorReportResponse
-from app.schemas.uploads import UploadImageResponse
 
 __all__ = [
     "AnnotationCreate",
@@ -26,15 +17,8 @@ __all__ = [
     "CorridorAnalysisResponse",
     "CorridorReportRequest",
     "CorridorReportResponse",
-    "DetectionFeatureCollectionResponse",
-    "DetectionFeatureResponse",
-    "DetectionItem",
-    "DetectionRequest",
-    "DetectionResponse",
-    "DetectionUpdate",
     "FeatureCollection",
     "Geometry",
     "LineStringGeometry",
     "PointGeometry",
-    "UploadImageResponse",
 ]

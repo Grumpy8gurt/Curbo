@@ -1,1 +1,1 @@
-"""Curbo backend application package."""
+"""CURBO backend application package."""

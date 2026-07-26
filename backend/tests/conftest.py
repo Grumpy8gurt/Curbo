@@ -18,8 +18,8 @@ from app.main import create_app
 def client(tmp_path):
     settings = Settings(
         database_url="sqlite://",
-        upload_dir=str(tmp_path / "uploads"),
         report_dir=str(tmp_path / "reports"),
+        annotation_file=str(tmp_path / "annotations.json"),
     )
     app = create_app(settings)
     with TestClient(app) as test_client:

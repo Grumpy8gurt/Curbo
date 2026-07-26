@@ -4,16 +4,11 @@ import type {
   AnnotationFeatureCollection
 } from "../types/annotations";
 import type { CorridorSummary } from "../types/corridors";
-import type {
-  DetectionFeature,
-  DetectionFeatureCollection,
-  DetectionReviewStatus
-} from "../types/detections";
 import type { Position } from "../types/geojson";
 import type {
+  BikeLaneFeatureCollection,
   CurbRampFeatureCollection,
   HydrantFeatureCollection,
-  PlaceholderFeatureCollection,
   RoadFeatureCollection
 } from "../types/layers";
 import type { CorridorReportResult } from "../types/reports";
@@ -24,7 +19,7 @@ const roads: RoadFeatureCollection = {
     {
       type: "Feature",
       properties: {
-        road_id: "rd_001",
+        road_id: "road_rd_001",
         name: "Willamette Street",
         classification: "arterial"
       },
@@ -40,7 +35,7 @@ const roads: RoadFeatureCollection = {
     {
       type: "Feature",
       properties: {
-        road_id: "rd_002",
+        road_id: "road_rd_002",
         name: "East 11th Avenue",
         classification: "collector"
       },
@@ -126,18 +121,36 @@ const hydrants: HydrantFeatureCollection = {
   ]
 };
 
-const emptyPoints = (): PlaceholderFeatureCollection => ({
+const bikeLanes: BikeLaneFeatureCollection = {
   type: "FeatureCollection",
-  features: []
-});
+  metadata: { status: "sample-fallback", source: "CURBO local fallback" },
+  features: [
+    {
+      type: "Feature",
+      properties: {
+        bike_lane_id: "bike_demo_001",
+        name: "East 11th Avenue",
+        facility_type: "Bike lane",
+        status: "Built"
+      },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-123.0927, 44.0489],
+          [-123.0899, 44.049],
+          [-123.0867, 44.0491]
+        ]
+      }
+    }
+  ]
+};
 
 let annotationCounter = 3;
-let detectionCounter = 2;
-let uploadCounter = 0;
 let reportCounter = 0;
 
 let annotations: AnnotationFeatureCollection = {
   type: "FeatureCollection",
+  metadata: { status: "local fallback", source: "CURBO in-memory fallback" },
   features: [
     createAnnotationFeature({
       annotationType: "missing curb cut",
@@ -154,34 +167,16 @@ let annotations: AnnotationFeatureCollection = {
   ]
 };
 
-let detections: DetectionFeatureCollection = {
-  type: "FeatureCollection",
-  features: [
-    createDetectionFeature([-123.0906, 44.0517], {
-      detection_id: "det_001",
-      label: "Possible missing curb cut",
-      confidence: 0.87,
-      review_status: "pending",
-      source: "mock-model"
-    }),
-    createDetectionFeature([-123.0872, 44.0496], {
-      detection_id: "det_002",
-      label: "Possible curb ramp retrofit",
-      confidence: 0.71,
-      review_status: "confirmed",
-      source: "mock-model"
-    })
-  ]
-};
-
 const corridorSummaries: Record<string, CorridorSummary> = {
-  rd_001: {
-    corridorId: "cor_rd_001",
-    roadId: "rd_001",
+  road_rd_001: {
+    corridorId: "cor_road_rd_001",
+    roadId: "road_rd_001",
     name: "Willamette Street",
     knownCurbRamps: 8,
     possibleMissingCurbCuts: 2,
     hydrantsNearby: 4,
+    bikeLanesNearby: 1,
+    userAnnotationsNearby: 1,
     busStopsNearby: 1,
     parkingConflicts: 7,
     bikeLaneFeasibility: "Medium",
@@ -190,13 +185,15 @@ const corridorSummaries: Record<string, CorridorSummary> = {
       "A loading zone may conflict with future ramp reconstruction."
     ]
   },
-  rd_002: {
-    corridorId: "cor_rd_002",
-    roadId: "rd_002",
+  road_rd_002: {
+    corridorId: "cor_road_rd_002",
+    roadId: "road_rd_002",
     name: "East 11th Avenue",
     knownCurbRamps: 5,
     possibleMissingCurbCuts: 1,
     hydrantsNearby: 2,
+    bikeLanesNearby: 1,
+    userAnnotationsNearby: 1,
     busStopsNearby: 1,
     parkingConflicts: 3,
     bikeLaneFeasibility: "High",
@@ -230,46 +227,27 @@ function createAnnotationFeature(
   };
 }
 
-function createDetectionFeature(
-  coordinates: Position,
-  properties: DetectionFeature["properties"]
-): DetectionFeature {
-  return {
-    type: "Feature",
-    id: properties.detection_id,
-    properties,
-    geometry: {
-      type: "Point",
-      coordinates
-    }
-  };
-}
-
-export function getMockRoads(): RoadFeatureCollection {
+export function getFallbackRoads(): RoadFeatureCollection {
   return roads;
 }
 
-export function getMockCurbRamps(): CurbRampFeatureCollection {
+export function getFallbackSidewalkRamps(): CurbRampFeatureCollection {
   return curbRamps;
 }
 
-export function getMockHydrants(): HydrantFeatureCollection {
+export function getFallbackHydrants(): HydrantFeatureCollection {
   return hydrants;
 }
 
-export function getMockAnnotations(): AnnotationFeatureCollection {
+export function getFallbackAnnotations(): AnnotationFeatureCollection {
   return annotations;
 }
 
-export function getMockDetections(): DetectionFeatureCollection {
-  return detections;
+export function getFallbackBikeLanes(): BikeLaneFeatureCollection {
+  return bikeLanes;
 }
 
-export function getMockPlaceholderLayer(): PlaceholderFeatureCollection {
-  return emptyPoints();
-}
-
-export function addMockAnnotation(draft: AnnotationDraft): AnnotationFeature {
+export function addFallbackAnnotation(draft: AnnotationDraft): AnnotationFeature {
   const feature = createAnnotationFeature(draft);
   annotations = {
     ...annotations,
@@ -278,7 +256,7 @@ export function addMockAnnotation(draft: AnnotationDraft): AnnotationFeature {
   return feature;
 }
 
-export function getMockCorridorSummary(roadId: string): CorridorSummary {
+export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
   return (
     corridorSummaries[roadId] ?? {
       corridorId: `cor_${roadId}`,
@@ -287,80 +265,23 @@ export function getMockCorridorSummary(roadId: string): CorridorSummary {
       knownCurbRamps: 0,
       possibleMissingCurbCuts: 0,
       hydrantsNearby: 0,
+      bikeLanesNearby: 0,
+      userAnnotationsNearby: 0,
       busStopsNearby: 0,
       parkingConflicts: 0,
       bikeLaneFeasibility: "Low",
-      planningNotes: ["No mock corridor summary is defined for this road yet."]
+      planningNotes: ["No fallback corridor summary is defined for this road yet."]
     }
   );
 }
 
-export function createMockUpload(file: File) {
-  uploadCounter += 1;
-  return {
-    uploadId: `upl_${String(uploadCounter).padStart(3, "0")}`,
-    filename: file.name,
-    status: "stored" as const
-  };
-}
-
-export function createMockDetectionFromUpload(uploadId: string): DetectionFeature {
-  detectionCounter += 1;
-  const feature = createDetectionFeature(
-    [-123.088 + Math.random() * 0.005, 44.05 + Math.random() * 0.004],
-    {
-      detection_id: `det_${String(detectionCounter).padStart(3, "0")}`,
-      label: "Uploaded image curb-cut candidate",
-      confidence: 0.64 + Math.random() * 0.2,
-      review_status: "pending",
-      source: "mock-model",
-      upload_id: uploadId
-    }
-  );
-
-  detections = {
-    ...detections,
-    features: [feature, ...detections.features]
-  };
-
-  return feature;
-}
-
-export function updateMockDetectionStatus(
-  detectionId: string,
-  status: DetectionReviewStatus
-): DetectionFeature | undefined {
-  let updatedFeature: DetectionFeature | undefined;
-
-  detections = {
-    ...detections,
-    features: detections.features.map((feature) => {
-      if (feature.properties.detection_id !== detectionId) {
-        return feature;
-      }
-
-      updatedFeature = {
-        ...feature,
-        properties: {
-          ...feature.properties,
-          review_status: status
-        }
-      };
-
-      return updatedFeature;
-    })
-  };
-
-  return updatedFeature;
-}
-
-export function createMockReport(corridorId: string, roadName: string): CorridorReportResult {
+export function createFallbackReport(corridorId: string, roadName: string): CorridorReportResult {
   reportCounter += 1;
   const reportId = `rep_${String(reportCounter).padStart(3, "0")}`;
   return {
     reportId,
     roadId: corridorId,
-    downloadUrl: `/api/reports/${reportId}/download`,
-    summary: `${roadName} corridor report queued successfully. Mock export includes counts, notes, and detection review status.`
+    downloadUrl: "",
+    summary: `${roadName} report preview generated locally. Connect the backend to download HTML.`
   };
 }

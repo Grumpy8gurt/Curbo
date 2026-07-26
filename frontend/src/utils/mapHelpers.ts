@@ -2,12 +2,9 @@ import type {
   AnnotationFeature,
   AnnotationProperties
 } from "../types/annotations";
-import type {
-  DetectionFeature,
-  DetectionProperties
-} from "../types/detections";
 import type { Feature, Geometry, LineStringGeometry, Position } from "../types/geojson";
 import type {
+  BikeLaneProperties,
   CurbRampProperties,
   HydrantProperties,
   LayerId,
@@ -22,7 +19,6 @@ export interface SelectedFeatureDetails {
   subtitle: string;
   source: string;
   status?: string;
-  confidence?: number;
   notes?: string;
   coordinates: Position;
 }
@@ -34,6 +30,11 @@ export function getFeatureCenter(geometry: Geometry): Position {
 
   if (geometry.type === "LineString") {
     return geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
+  }
+
+  if (geometry.type === "MultiLineString") {
+    const line = geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
+    return line[Math.floor(line.length / 2)];
   }
 
   return geometry.coordinates[0][0];
@@ -50,7 +51,7 @@ export function toSelectedFeatureDetails(
   switch (layerId) {
     case "roads":
       return fromRoadFeature(feature as unknown as RoadFeature);
-    case "curbRamps":
+    case "sidewalkRamps":
       return fromCurbRampFeature(
         feature.properties as unknown as CurbRampProperties,
         feature.geometry
@@ -60,10 +61,13 @@ export function toSelectedFeatureDetails(
         feature.properties as unknown as HydrantProperties,
         feature.geometry
       );
+    case "bikeLanes":
+      return fromBikeLaneFeature(
+        feature.properties as unknown as BikeLaneProperties,
+        feature.geometry
+      );
     case "annotations":
       return fromAnnotationFeature(feature as unknown as AnnotationFeature);
-    case "detections":
-      return fromDetectionFeature(feature as unknown as DetectionFeature);
     default:
       return {
         id: String(feature.id ?? "unknown"),
@@ -95,10 +99,10 @@ function fromCurbRampFeature(
 ): SelectedFeatureDetails {
   return {
     id: properties.ramp_id,
-    layerId: "curbRamps",
+    layerId: "sidewalkRamps",
     title: properties.ramp_id,
-    subtitle: "Curb ramp",
-    source: "curb ramps layer",
+    subtitle: "Sidewalk ramp",
+    source: properties.source ?? "City of Eugene GIS",
     status: properties.status,
     notes: `Condition: ${properties.condition}`,
     coordinates: getFeatureCenter(geometry)
@@ -114,8 +118,23 @@ function fromHydrantFeature(
     layerId: "hydrants",
     title: properties.hydrant_id,
     subtitle: "Hydrant",
-    source: "hydrants layer",
+    source: properties.source ?? "City of Eugene GIS",
     notes: `Flow class: ${properties.flow_class}`,
+    coordinates: getFeatureCenter(geometry)
+  };
+}
+
+function fromBikeLaneFeature(
+  properties: BikeLaneProperties,
+  geometry: Geometry
+): SelectedFeatureDetails {
+  return {
+    id: properties.bike_lane_id,
+    layerId: "bikeLanes",
+    title: properties.name,
+    subtitle: properties.facility_type,
+    source: properties.source ?? "City of Eugene GIS",
+    status: properties.status,
     coordinates: getFeatureCenter(geometry)
   };
 }
@@ -131,21 +150,6 @@ function fromAnnotationFeature(feature: AnnotationFeature): SelectedFeatureDetai
     source: properties.source,
     status: properties.status,
     notes: properties.description,
-    coordinates: getFeatureCenter(feature.geometry)
-  };
-}
-
-function fromDetectionFeature(feature: DetectionFeature): SelectedFeatureDetails {
-  const properties = feature.properties as DetectionProperties;
-
-  return {
-    id: properties.detection_id,
-    layerId: "detections",
-    title: properties.label,
-    subtitle: "AI detection",
-    source: properties.source,
-    status: properties.review_status,
-    confidence: properties.confidence,
     coordinates: getFeatureCenter(feature.geometry)
   };
 }

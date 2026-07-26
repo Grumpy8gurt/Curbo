@@ -1,6 +1,6 @@
-# Curbo Backend
+# CURBO Backend
 
-This backend provides the MVP API for Curbo, the sidewalk surveying and management dashboard. It serves map-ready GeoJSON layers, accepts planner annotations and image uploads, runs mock curb-cut detections, and generates lightweight corridor reports for frontend integration.
+This FastAPI service normalizes CURBO's cached City of Eugene GIS layers, persists planner annotations to JSON, calculates lightweight corridor summaries, and generates HTML reports.
 
 ## Stack
 
@@ -8,7 +8,8 @@ This backend provides the MVP API for Curbo, the sidewalk surveying and manageme
 - FastAPI
 - SQLAlchemy
 - PostgreSQL + PostGIS as the intended long-term database
-- Mock GeoJSON and in-memory storage for local development fallback
+- Cached Eugene GeoJSON with compact sample fallback data
+- Atomic JSON-file annotation persistence
 
 ## Run Locally
 
@@ -24,23 +25,22 @@ The API will be available at `http://localhost:8000`.
 
 ## Environment Variables
 
-The backend reads configuration from environment variables and builds the database URL automatically.
+The backend reads configuration from the repository-root `.env` file and process environment. The Sprint 3 runtime does not require a database.
 
 ```env
-POSTGRES_DB=ssm
-POSTGRES_USER=ssm_user
-POSTGRES_PASSWORD=ssm_password
+POSTGRES_DB=curbo
+POSTGRES_USER=curbo_user
+POSTGRES_PASSWORD=curbo_password
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 BACKEND_PORT=8000
-UPLOAD_DIR=uploads
 REPORT_DIR=generated_reports
-ML_SERVICE_URL=http://localhost:9000/detect
+ANNOTATION_FILE=data/annotations.json
 ```
 
 Optional:
 
-- `DATABASE_URL`: overrides the generated PostgreSQL URL when you want SQLite or a custom DSN.
+- `DATABASE_URL`: enables optional SQLAlchemy/PostGIS scaffolding with a PostgreSQL, SQLite, or other supported DSN. It is disabled by default.
 
 ## API Endpoints
 
@@ -48,35 +48,30 @@ All routes are registered under `/api`.
 
 - `GET /api/health`
 - `GET /api/layers/roads`
+- `GET /api/layers/sidewalk-ramps`
 - `GET /api/layers/curb-ramps`
 - `GET /api/layers/hydrants`
+- `GET /api/layers/bike-lanes`
 - `GET /api/layers/annotations`
-- `GET /api/layers/detections`
 - `GET /api/annotations`
 - `POST /api/annotations`
 - `PATCH /api/annotations/{annotation_id}`
 - `POST /api/corridors/analyze`
-- `POST /api/uploads/images`
-- `GET /api/detection/curb-cuts`
-- `POST /api/detection/curb-cuts`
-- `PATCH /api/detection/{detection_id}`
-- `PATCH /api/detections/{detection_id}`
 - `POST /api/reports/corridor`
 - `GET /api/reports/{report_id}/download`
 
-## Mock Behavior
+## Data and Fallback Behavior
 
-- Roads, curb ramps, and hydrants are loaded from the sample GeoJSON under `../data/sample`.
-- Annotations, detections, uploaded image metadata, and generated reports are stored in memory for MVP development.
-- Uploaded files are written to the local `uploads/` directory.
-- Detection requests are forwarded to the ML service at `ML_SERVICE_URL` when it is available, with a backend fallback if the ML service is offline during local development.
-- Corridor analysis uses lightweight spatial heuristics and bbox checks instead of real PostGIS buffering.
+- Eugene layers load from `../data/eugene` and are normalized by `EugeneDataService`.
+- Missing cached layers fall back to `../data/sample` where a matching sample exists.
+- Annotations persist to `ANNOTATION_FILE`; reports are written under `REPORT_DIR`.
+- Corridor analysis uses lightweight bounding-box checks instead of PostGIS buffering.
 
 ## Database Status
 
-- SQLAlchemy models are included for `roads`, `curb_ramps`, `hydrants`, `annotations`, `detections`, `uploaded_images`, and `corridor_reports`.
+- SQLAlchemy models are included for `roads`, `curb_ramps`, `hydrants`, `annotations`, and `corridor_reports`.
 - On startup the app attempts to create tables using the configured database URL.
-- If PostgreSQL/PostGIS is unavailable, the API still starts and serves mock/sample-backed responses so the frontend is not blocked.
+- If PostgreSQL/PostGIS is unavailable, the API still starts and serves cached GeoJSON because layer loading and annotation persistence are independent.
 
 ## Frontend Integration Notes
 
@@ -84,16 +79,8 @@ All routes are registered under `/api`.
 - `GET /api/annotations` returns a GeoJSON `FeatureCollection` because the frontend stores annotations as map features.
 - `POST /api/annotations` accepts the frontend draft shape `{ annotationType, description, latitude, longitude }`.
 - `POST /api/corridors/analyze` accepts `{ roadId }` and returns the current `CorridorSummary` shape used by the React app.
-- `POST /api/uploads/images` accepts multipart field `image` or `file` and returns `{ uploadId, filename, status }`.
-- `GET /api/detection/curb-cuts` returns the detection layer as a GeoJSON `FeatureCollection`.
-- `POST /api/detection/curb-cuts` accepts `{ upload_id }` or `{ image_id }` and returns a single detection `Feature`.
-- Detection review updates are available at both `PATCH /api/detection/{id}` and `PATCH /api/detections/{id}` for compatibility.
 - `POST /api/reports/corridor` accepts `{ corridor_id, format }` or `{ roadId, format }` and returns the current `CorridorReportResult` shape.
 - CORS is enabled for `http://localhost:5173` and common local development origins.
-
-## ML Integration Notes
-
-The backend now calls the ML service through `app/services/detection_service.py` using multipart upload to `/detect`. If the ML service is down, the backend falls back to a local mock detection so the frontend remains usable.
 
 ## Tests
 

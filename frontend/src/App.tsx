@@ -1,41 +1,30 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createAnnotation, getAnnotations } from "./api/annotations";
 import {
-  runCurbCutDetection,
-  updateDetectionReviewStatus,
-  uploadImage
-} from "./api/detection";
-import {
-  getCurbRamps,
-  getDetections,
+  getBikeLanes,
   getHydrants,
-  getPlaceholderLayer,
-  getRoads
+  getRoads,
+  getSidewalkRamps
 } from "./api/layers";
 import { analyzeCorridor } from "./api/corridors";
 import { generateCorridorReport } from "./api/reports";
 import { AnnotationTool } from "./components/AnnotationTool";
 import { CorridorSelector } from "./components/CorridorSelector";
-import { DetectionReviewPanel } from "./components/DetectionReviewPanel";
 import { Header } from "./components/Header";
 import { LayerPanel } from "./components/LayerPanel";
 import { Layout } from "./components/Layout";
 import { MapView } from "./components/MapView";
 import { ReportPanel } from "./components/ReportPanel";
 import { Sidebar } from "./components/Sidebar";
-import { UploadPanel } from "./components/UploadPanel";
 import type {
   AnnotationDraft,
   AnnotationFeatureCollection
 } from "./types/annotations";
 import type { CorridorSummary } from "./types/corridors";
-import type {
-  DetectionFeatureCollection,
-  DetectionReviewStatus
-} from "./types/detections";
-import type { PlaceholderFeatureCollection, RoadFeatureCollection } from "./types/layers";
+import type { RoadFeatureCollection } from "./types/layers";
 import {
   DEFAULT_LAYER_VISIBILITY,
+  type BikeLaneFeatureCollection,
   type CurbRampFeatureCollection,
   type HydrantFeatureCollection,
   type LayerId,
@@ -48,24 +37,20 @@ const EMPTY_ROADS: RoadFeatureCollection = { type: "FeatureCollection", features
 const EMPTY_CURB_RAMPS: CurbRampFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_HYDRANTS: HydrantFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_ANNOTATIONS: AnnotationFeatureCollection = { type: "FeatureCollection", features: [] };
-const EMPTY_DETECTIONS: DetectionFeatureCollection = { type: "FeatureCollection", features: [] };
-const EMPTY_PLACEHOLDERS: PlaceholderFeatureCollection = {
+const EMPTY_BIKE_LANES: BikeLaneFeatureCollection = {
   type: "FeatureCollection",
   features: []
 };
 
 export default function App() {
   const [roads, setRoads] = useState<RoadFeatureCollection>(EMPTY_ROADS);
-  const [curbRamps, setCurbRamps] = useState<CurbRampFeatureCollection>(EMPTY_CURB_RAMPS);
+  const [sidewalkRamps, setSidewalkRamps] =
+    useState<CurbRampFeatureCollection>(EMPTY_CURB_RAMPS);
   const [hydrants, setHydrants] = useState<HydrantFeatureCollection>(EMPTY_HYDRANTS);
+  const [bikeLanes, setBikeLanes] =
+    useState<BikeLaneFeatureCollection>(EMPTY_BIKE_LANES);
   const [annotations, setAnnotations] =
     useState<AnnotationFeatureCollection>(EMPTY_ANNOTATIONS);
-  const [detections, setDetections] = useState<DetectionFeatureCollection>(EMPTY_DETECTIONS);
-  const [bikeLanes, setBikeLanes] = useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
-  const [busStops, setBusStops] = useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
-  const [parkingZones, setParkingZones] =
-    useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
-  const [parcels, setParcels] = useState<PlaceholderFeatureCollection>(EMPTY_PLACEHOLDERS);
   const [visibility, setVisibility] = useState<LayerVisibility>(DEFAULT_LAYER_VISIBILITY);
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureDetails | null>(null);
   const [selectedRoadId, setSelectedRoadId] = useState<string | null>(null);
@@ -74,43 +59,33 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [corridorLoading, setCorridorLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
-  const [activityMessage, setActivityMessage] = useState("Loading planning layers...");
+  const [activityMessage, setActivityMessage] = useState("Loading Eugene GIS layers...");
 
   useEffect(() => {
     async function loadData() {
       try {
         const [
           nextRoads,
-          nextCurbRamps,
+          nextSidewalkRamps,
           nextHydrants,
           nextAnnotations,
-          nextDetections,
-          nextBikeLanes,
-          nextBusStops,
-          nextParkingZones,
-          nextParcels
+          nextBikeLanes
         ] = await Promise.all([
           getRoads(),
-          getCurbRamps(),
+          getSidewalkRamps(),
           getHydrants(),
           getAnnotations(),
-          getDetections(),
-          getPlaceholderLayer(),
-          getPlaceholderLayer(),
-          getPlaceholderLayer(),
-          getPlaceholderLayer()
+          getBikeLanes()
         ]);
 
         setRoads(nextRoads);
-        setCurbRamps(nextCurbRamps);
+        setSidewalkRamps(nextSidewalkRamps);
         setHydrants(nextHydrants);
         setAnnotations(nextAnnotations);
-        setDetections(nextDetections);
         setBikeLanes(nextBikeLanes);
-        setBusStops(nextBusStops);
-        setParkingZones(nextParkingZones);
-        setParcels(nextParcels);
-        setActivityMessage("Planning layers loaded. Ready for corridor review.");
+        setActivityMessage("Eugene infrastructure layers loaded. Ready for corridor review.");
+      } catch {
+        setActivityMessage("Some Eugene layers are unavailable. Local fallbacks remain active.");
       } finally {
         setLoading(false);
       }
@@ -119,7 +94,7 @@ export default function App() {
     void loadData();
   }, []);
 
-  async function handleRoadSelection(roadId: string) {
+  const handleRoadSelection = useCallback(async (roadId: string) => {
     setSelectedRoadId(roadId || null);
     setReportResult(null);
 
@@ -135,10 +110,20 @@ export default function App() {
       const summary = await analyzeCorridor(roadId);
       setCorridorSummary(summary);
       setActivityMessage(`Loaded corridor summary for ${summary.name}.`);
+    } catch {
+      setCorridorSummary(null);
+      setActivityMessage("Corridor analysis failed. Verify the selected road and backend.");
     } finally {
       setCorridorLoading(false);
     }
-  }
+  }, []);
+
+  const handleMapRoadSelection = useCallback(
+    (roadId: string) => {
+      void handleRoadSelection(roadId);
+    },
+    [handleRoadSelection]
+  );
 
   function toggleLayer(layerId: LayerId) {
     setVisibility((current) => ({
@@ -166,55 +151,6 @@ export default function App() {
     setActivityMessage("New annotation added to the map.");
   }
 
-  async function handleUpload(file: File) {
-    setActivityMessage(`Uploading ${file.name} to the detection pipeline...`);
-    const upload = await uploadImage(file);
-    const detection = await runCurbCutDetection(upload.uploadId);
-    setDetections((current) => ({
-      ...current,
-      features: [detection, ...current.features]
-    }));
-    setSelectedFeature({
-      id: detection.properties.detection_id,
-      layerId: "detections",
-      title: detection.properties.label,
-      subtitle: "AI detection",
-      source: detection.properties.source,
-      status: detection.properties.review_status,
-      confidence: detection.properties.confidence,
-      coordinates: detection.geometry.coordinates
-    });
-    setActivityMessage(`Detection created from ${upload.filename}.`);
-  }
-
-  async function handleDetectionReview(
-    detectionId: string,
-    status: DetectionReviewStatus
-  ) {
-    const updated = await updateDetectionReviewStatus(detectionId, status);
-    if (!updated) {
-      return;
-    }
-
-    setDetections((current) => ({
-      ...current,
-      features: current.features.map((feature) =>
-        feature.properties.detection_id === detectionId ? updated : feature
-      )
-    }));
-
-    setSelectedFeature((current) =>
-      current?.id === detectionId
-        ? {
-            ...current,
-            status
-          }
-        : current
-    );
-
-    setActivityMessage(`Detection ${detectionId} marked ${status}.`);
-  }
-
   async function handleGenerateReport() {
     if (!corridorSummary) {
       return;
@@ -230,6 +166,9 @@ export default function App() {
       );
       setReportResult(result);
       setActivityMessage(result.summary);
+    } catch {
+      setReportResult(null);
+      setActivityMessage("Report generation failed. Verify the backend and try again.");
     } finally {
       setReportLoading(false);
     }
@@ -247,9 +186,26 @@ export default function App() {
           <>
             <Sidebar
               title="Map layers"
-              description="Toggle visibility for the core planning layers. Placeholder layers are listed for future backend work."
+              description="Toggle cached City of Eugene infrastructure layers and user annotations."
             >
-              <LayerPanel visibility={visibility} onToggle={toggleLayer} />
+              <LayerPanel
+                visibility={visibility}
+                layerCounts={{
+                  roads: roads.features.length,
+                  sidewalkRamps: sidewalkRamps.features.length,
+                  hydrants: hydrants.features.length,
+                  bikeLanes: bikeLanes.features.length,
+                  annotations: annotations.features.length
+                }}
+                layerStatuses={{
+                  roads: roads.metadata?.status ?? "local fallback",
+                  sidewalkRamps: sidewalkRamps.metadata?.status ?? "local fallback",
+                  hydrants: hydrants.metadata?.status ?? "local fallback",
+                  bikeLanes: bikeLanes.metadata?.status ?? "local fallback",
+                  annotations: annotations.metadata?.status ?? "persistent"
+                }}
+                onToggle={toggleLayer}
+              />
             </Sidebar>
 
             <Sidebar
@@ -270,37 +226,27 @@ export default function App() {
             >
               <AnnotationTool onCreate={handleCreateAnnotation} />
             </Sidebar>
-
-            <Sidebar
-              title="Image upload"
-              description="Prototype the future AI pipeline without implementing the model itself."
-            >
-              <UploadPanel onUpload={handleUpload} />
-            </Sidebar>
           </>
         }
         map={
           <MapView
             roads={roads}
-            curbRamps={curbRamps}
+            sidewalkRamps={sidewalkRamps}
             hydrants={hydrants}
+            bikeLanes={bikeLanes}
             annotations={annotations}
-            detections={detections}
-            placeholders={{ bikeLanes, busStops, parkingZones, parcels }}
             visibility={visibility}
             selectedFeature={selectedFeature}
             selectedRoadId={selectedRoadId}
             onFeatureSelect={setSelectedFeature}
-            onRoadSelect={(roadId) => {
-              void handleRoadSelection(roadId);
-            }}
+            onRoadSelect={handleMapRoadSelection}
           />
         }
         aside={
           <>
             <Sidebar
               title="Corridor report"
-              description="The backend will eventually own the real spatial analysis and report export."
+              description="Review a lightweight summary calculated from the current Eugene layers."
             >
               <ReportPanel
                 summary={corridorSummary}
@@ -311,24 +257,13 @@ export default function App() {
             </Sidebar>
 
             <Sidebar
-              title="Detection review"
-              description="Review mocked curb-cut candidates and keep their status in sync with the map."
-            >
-              <DetectionReviewPanel
-                detections={detections.features}
-                onReview={handleDetectionReview}
-              />
-            </Sidebar>
-
-            <Sidebar
               title="Working assumptions"
-              description="This frontend is intentionally mock-first so the rest of the stack can catch up later."
+              description="Sprint 3 uses cached Eugene GIS data with offline-safe fallbacks."
             >
               <ul className="assumption-list">
-                <li>Map layers currently load from sample or local mock GeoJSON.</li>
-                <li>Corridor analysis and reporting are simulated in the frontend API layer.</li>
-                <li>Uploads create fake detections and do not invoke real ML inference.</li>
-                <li>Backend integration can replace the API modules without redesigning the UI.</li>
+                <li>The backend serves normalized files from the local Eugene data cache.</li>
+                <li>The frontend falls back to small local samples if the API is unavailable.</li>
+                <li>User annotations persist to a local JSON file through the backend.</li>
               </ul>
             </Sidebar>
           </>

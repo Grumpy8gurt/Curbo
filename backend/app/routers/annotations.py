@@ -9,7 +9,7 @@ from app.schemas.annotations import (
     AnnotationFeatureResponse,
     AnnotationUpdate,
 )
-from app.services.mock_data import AppStore
+from app.services.app_store import AppStore
 
 router = APIRouter(prefix="/annotations", tags=["annotations"])
 
