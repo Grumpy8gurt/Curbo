@@ -4,12 +4,12 @@ This directory contains the local GeoJSON cache used by CURBO Sprint 3. The file
 
 | CURBO layer | City service layer |
 |---|---|
-| `roads.geojson` | [Transportation — Streets (2)](https://gis.eugene-or.gov/arcgis/rest/services/PWE/Transportation/MapServer/2) |
-| `sidewalk_ramps.geojson` | [Transportation — Existing Ramps (29)](https://gis.eugene-or.gov/arcgis/rest/services/PWE/Transportation/MapServer/29) |
-| `hydrants.geojson` | [Miscellaneous Infrastructure — Fire Hydrants (3)](https://gis.eugene-or.gov/arcgis/rest/services/PWE/MiscInfra/MapServer/3) |
-| `bike_lanes.geojson` | [Transportation — Bikeways Built (19)](https://gis.eugene-or.gov/arcgis/rest/services/PWE/Transportation/MapServer/19) |
+| `roads.geojson` | [Eugene Street Lines](https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugStLines/FeatureServer/0) |
+| `sidewalk_ramps.geojson` | [Eugene Sidewalk Ramps](https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugSidewalkRamps/FeatureServer/0) |
+| `hydrants.geojson` | [Eugene Fire Hydrants](https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugHydrants/FeatureServer/0) |
+| `bike_lanes.geojson` | [Eugene Bikeways](https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugBikeways/FeatureServer/0) |
 
-The refresh script requests WGS84 GeoJSON and limits each layer to 1,000 features for a manageable prototype cache. These files are demonstration extracts, not authoritative operational datasets. Source schemas remain visible in the cache; the backend normalizes the fields exposed to the frontend.
+The committed files are 400-feature demonstration extracts, not authoritative operational datasets. The refresh script requests WGS84 GeoJSON and paginates each public service in 2,000-feature pages so a deliberate refresh can retrieve the complete available layer. Source schemas remain visible in the cache; the backend normalizes the fields exposed to the frontend.
 
 Refresh and validate:
 
