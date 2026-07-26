@@ -38,6 +38,10 @@ This document reflects the verified CURBO Sprint 3 integration contract.
 
 - Response: GeoJSON `FeatureCollection`
 
+All infrastructure layer routes accept an optional
+`bbox=minLng,minLat,maxLng,maxLat` query. Bounds must be finite and ordered;
+points or line segments intersecting the box are returned.
+
 ### `GET /api/annotations`
 
 - Purpose: return annotations in the same GeoJSON feature format the frontend stores in local state

@@ -25,12 +25,12 @@ The API will be available at `http://localhost:8000`.
 
 ## Environment Variables
 
-The backend reads configuration from environment variables and builds the database URL automatically.
+The backend reads configuration from the repository-root `.env` file and process environment. The Sprint 3 runtime does not require a database.
 
 ```env
-POSTGRES_DB=ssm
-POSTGRES_USER=ssm_user
-POSTGRES_PASSWORD=ssm_password
+POSTGRES_DB=curbo
+POSTGRES_USER=curbo_user
+POSTGRES_PASSWORD=curbo_password
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 BACKEND_PORT=8000
@@ -40,7 +40,7 @@ ANNOTATION_FILE=data/annotations.json
 
 Optional:
 
-- `DATABASE_URL`: overrides the generated PostgreSQL URL when you want SQLite or a custom DSN.
+- `DATABASE_URL`: enables optional SQLAlchemy/PostGIS scaffolding with a PostgreSQL, SQLite, or other supported DSN. It is disabled by default.
 
 ## API Endpoints
 

@@ -1,17 +1,18 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4
-    container_name: ssm-postgres
+    container_name: curbo-postgres
+    profiles: ["database"]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ssm}
-      POSTGRES_USER: ${POSTGRES_USER:-ssm_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ssm_password}
+      POSTGRES_DB: ${POSTGRES_DB:-curbo}
+      POSTGRES_USER: ${POSTGRES_USER:-curbo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-curbo_password}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ssm_user} -d ${POSTGRES_DB:-ssm}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-curbo_user} -d ${POSTGRES_DB:-curbo}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,21 +22,15 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-ssm}
-      POSTGRES_USER: ${POSTGRES_USER:-ssm_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ssm_password}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
       BACKEND_PORT: ${BACKEND_PORT:-8000}
-      REPORT_DIR: ${REPORT_DIR:-generated_reports}
+      REPORT_DIR: /app/generated_reports
       ANNOTATION_FILE: /app/data/runtime/annotations.json
+      DATABASE_URL: ${DATABASE_URL:-}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - annotation-data:/app/data/runtime
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - report-data:/app/generated_reports
 
   # frontend:
   #   build: ./frontend
@@ -47,3 +42,4 @@ services:
 volumes:
   postgres-data:
   annotation-data:
+  report-data:

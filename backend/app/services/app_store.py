@@ -131,8 +131,11 @@ class AppStore:
             for item in items:
                 item["created_at"] = datetime.fromisoformat(item["created_at"])
             return items
-        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-            return _default_annotations()
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Annotation store '{annotation_file}' is invalid; "
+                "restore or remove it before restarting CURBO."
+            ) from exc
 
     def _persist_annotations(self) -> None:
         if self.annotation_file is None:

@@ -29,14 +29,11 @@ export async function fetchJsonWithFallback<T>(
   try {
     const response = await fetch(apiUrl(path), init);
     if (!response.ok) {
-      if (init?.method && init.method !== "GET" && response.status < 500) {
-        throw new ApiRequestError(`${response.status} ${response.statusText}`);
-      }
-      throw new Error(`${response.status} ${response.statusText}`);
+      throw new ApiRequestError(`${response.status} ${response.statusText}`);
     }
     return (await response.json()) as T;
   } catch (error) {
-    if (error instanceof ApiRequestError) {
+    if (error instanceof ApiRequestError || !(error instanceof TypeError)) {
       throw error;
     }
     console.warn(`CURBO API unavailable for ${path}; using local fallback.`, error);

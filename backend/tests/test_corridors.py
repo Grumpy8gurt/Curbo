@@ -13,3 +13,18 @@ def test_corridor_analysis_returns_expected_fields(client):
     assert "userAnnotationsNearby" in payload
     assert "bikeLaneFeasibility" in payload
     assert isinstance(payload["planningNotes"], list)
+
+
+def test_corridor_analysis_accepts_multiline_roads(client):
+    road = client.app.state.store.roads["features"][0]
+    road["geometry"] = {
+        "type": "MultiLineString",
+        "coordinates": [road["geometry"]["coordinates"]],
+    }
+
+    response = client.post(
+        "/api/corridors/analyze",
+        json={"roadId": road["properties"]["road_id"]},
+    )
+
+    assert response.status_code == 200

@@ -10,8 +10,8 @@ export interface AnnotationProperties {
   annotation_id: string;
   annotation_type: AnnotationKind;
   description: string;
-  status: "pending" | "reviewed";
-  source: "planner";
+  status: "pending" | "reviewed" | "confirmed" | "rejected";
+  source: string;
   created_at: string;
 }
 

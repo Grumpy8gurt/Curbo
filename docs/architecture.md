@@ -22,7 +22,7 @@ POST /api/annotations
   -> backend/data/annotations.json
 ```
 
-PostgreSQL/PostGIS remains available in Docker and SQLAlchemy initialization remains in place, but Sprint 3 does not import the Eugene cache into PostGIS.
+PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the Sprint 3 runtime does not require a database or import the Eugene cache into PostGIS.
 
 ## Frontend Responsibilities
 
@@ -50,7 +50,7 @@ PostgreSQL/PostGIS remains available in Docker and SQLAlchemy initialization rem
 
 ## Persistence Choice
 
-Sprint 3 uses an atomic JSON-file write for user annotations at `backend/data/annotations.json`. This is intentionally lightweight, easy to inspect, and sufficient for a single-user prototype. Docker mounts a named volume at `/app/data/runtime` for the configured annotation file. PostgreSQL/PostGIS remains a future migration path rather than a Sprint 3 requirement.
+Sprint 3 uses an atomic JSON-file write for user annotations at `backend/data/annotations.json`. This is intentionally lightweight, easy to inspect, and sufficient for a single-user prototype. Docker mounts named volumes for annotations and generated HTML reports. PostgreSQL/PostGIS remains a future migration path rather than a Sprint 3 requirement.
 
 ## Removed ML Responsibility
 

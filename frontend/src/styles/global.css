@@ -377,6 +377,15 @@ button {
   color: #0c5e4b;
 }
 
+.success-callout p {
+  margin: 0 0 6px;
+}
+
+.success-callout a {
+  color: inherit;
+  font-weight: 700;
+}
+
 .error-callout {
   margin: 0;
   padding: 12px 14px;

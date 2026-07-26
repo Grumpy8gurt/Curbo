@@ -42,7 +42,10 @@ export interface BikeLaneProperties {
   source?: string;
 }
 
-export type RoadFeature = Feature<RoadProperties, LineStringGeometry>;
+export type RoadFeature = Feature<
+  RoadProperties,
+  LineStringGeometry | MultiLineStringGeometry
+>;
 export type CurbRampFeature = Feature<CurbRampProperties, PointGeometry>;
 export type HydrantFeature = Feature<HydrantProperties, PointGeometry>;
 export type BikeLaneFeature = Feature<

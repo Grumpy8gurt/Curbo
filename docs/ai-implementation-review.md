@@ -55,3 +55,7 @@ Rejected/Postponed: Keeping the ML curb-cut detection layer, because Sprint 3 is
 ### Human Engineering Decision
 
 Human decision: Rename the project to CURBO and remove the ML layer to keep the prototype aligned with Sprint 3's manageable expansion requirement. The human developer also chose JSON-file annotation persistence as an inspectable intermediate step before multi-user database persistence.
+
+### Verification After AI-Assisted Review
+
+AI findings were checked with backend tests, a frontend production build and dependency audit, GeoJSON validation, cache-only refresh verification, Compose validation, browser-based corridor/report flows, and a clean-clone test. Suggestions that were not supported by those checks were not treated as application defects.

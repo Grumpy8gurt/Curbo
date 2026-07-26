@@ -1,5 +1,6 @@
 import type { CorridorSummary } from "../types/corridors";
 import type { CorridorReportResult } from "../types/reports";
+import { apiUrl } from "../api/client";
 
 interface ReportPanelProps {
   summary: CorridorSummary | null;
@@ -58,7 +59,18 @@ export function ReportPanel({
         {generating ? "Generating..." : "Generate Report"}
       </button>
 
-      {reportResult ? <p className="success-callout">{reportResult.summary}</p> : null}
+      {reportResult ? (
+        <div className="success-callout">
+          <p>{reportResult.summary}</p>
+          {reportResult.downloadUrl ? (
+            <a href={apiUrl(reportResult.downloadUrl)} target="_blank" rel="noreferrer">
+              Download HTML report
+            </a>
+          ) : (
+            <small>Downloads require the backend API.</small>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

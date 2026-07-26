@@ -62,3 +62,30 @@ def test_layer_bbox_filter_preserves_metadata(client):
     payload = response.json()
     assert 1 <= len(payload["features"]) <= len(unfiltered["features"])
     assert payload["metadata"]["status"] == "cached-eugene"
+
+
+def test_layer_bbox_detects_line_segment_crossings(client):
+    roads = client.get("/api/layers/roads").json()
+    coordinates = roads["features"][0]["geometry"]["coordinates"]
+    start, end = coordinates[0], coordinates[1]
+    midpoint = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
+    epsilon = 1e-8
+
+    response = client.get(
+        "/api/layers/roads",
+        params={
+            "bbox": (
+                f"{midpoint[0] - epsilon},{midpoint[1] - epsilon},"
+                f"{midpoint[0] + epsilon},{midpoint[1] + epsilon}"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert roads["features"][0] in response.json()["features"]
+
+
+def test_layer_bbox_rejects_reversed_bounds(client):
+    response = client.get("/api/layers/roads", params={"bbox": "1,1,0,0"})
+
+    assert response.status_code == 422

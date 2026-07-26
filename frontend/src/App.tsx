@@ -110,6 +110,9 @@ export default function App() {
       const summary = await analyzeCorridor(roadId);
       setCorridorSummary(summary);
       setActivityMessage(`Loaded corridor summary for ${summary.name}.`);
+    } catch {
+      setCorridorSummary(null);
+      setActivityMessage("Corridor analysis failed. Verify the selected road and backend.");
     } finally {
       setCorridorLoading(false);
     }
@@ -163,6 +166,9 @@ export default function App() {
       );
       setReportResult(result);
       setActivityMessage(result.summary);
+    } catch {
+      setReportResult(null);
+      setActivityMessage("Report generation failed. Verify the backend and try again.");
     } finally {
       setReportLoading(false);
     }
@@ -196,7 +202,7 @@ export default function App() {
                   sidewalkRamps: sidewalkRamps.metadata?.status ?? "local fallback",
                   hydrants: hydrants.metadata?.status ?? "local fallback",
                   bikeLanes: bikeLanes.metadata?.status ?? "local fallback",
-                  annotations: "persistent"
+                  annotations: annotations.metadata?.status ?? "persistent"
                 }}
                 onToggle={toggleLayer}
               />

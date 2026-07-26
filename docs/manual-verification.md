@@ -70,7 +70,7 @@ Sprint 2 results above are retained as historical evidence. Sprint 3 verificatio
 - `python scripts/fetch_eugene_data.py` (offline/cache-preservation path)
 - `docker compose config`
 
-The final repository review produced 12 passing backend tests, a successful frontend production build, zero reported npm vulnerabilities, 7 valid GeoJSON files, a successful cache-only refresh check, and a valid Compose configuration. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
+The final repository review produced 17 passing backend tests, a successful frontend production build, zero reported npm vulnerabilities, 7 valid GeoJSON files, a successful cache-only refresh check, and valid default and optional-database Compose configurations. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
 
 ### Sprint 3 Issues Discovered and Resolved
 
@@ -82,11 +82,15 @@ The final repository review produced 12 passing backend tests, a successful fron
 | A broad `models/` ignore rule excluded required SQLAlchemy modules from repository history. | Scope artifact ignores to repository-root directories and track `backend/app/models/`. | A tracked-files audit and clean-tree test run confirmed the runtime package is complete. |
 | Local services started in subdirectories and did not consistently discover the root `.env` file. | Configure FastAPI settings and Vite to read the repository-root environment file. | Backend tests and the frontend production build passed with the shared configuration. |
 | The clean-clone npm audit reported three vulnerabilities in the older Vite development toolchain. | Upgrade Vite and its React plugin to current releases. | The production build passed and `npm audit` reported zero vulnerabilities. |
+| API fallback logic could hide reachable-backend HTTP errors behind synthetic local data. | Restrict fallback behavior to network failures and surface HTTP errors in the dashboard. | Invalid annotations return HTTP 422, while normal offline fallback remains available. |
+| Generated reports had no usable frontend download control and were not persisted by Compose. | Add a backend-aware download link and a named report volume. | Browser report generation exposed the HTML download and backend download tests passed. |
+| Bounding-box filtering only matched line vertices and accepted reversed bounds. | Add segment/rectangle intersection and ordered-bound validation. | Crossing-line and reversed-bound tests passed. |
+| Corrupt annotation JSON silently restored seed data. | Fail startup with a clear path-specific error without overwriting the file. | Corruption-preservation and restart-persistence tests passed. |
 | The first manual server commands inherited the wrong shell working directory. | Use explicit `cd backend` and `cd frontend` commands, matching the README. | Both services subsequently started and completed browser verification. |
 
 ### Remaining Limitations
 
 - The JSON annotation store is designed for a single-user prototype and does not provide concurrent-write coordination.
 - Eugene layers are committed extracts; a refresh may produce larger files as the public services change.
-- PostGIS is initialized for future work but the Sprint 3 layer path intentionally uses cached GeoJSON.
+- PostGIS is optional scaffolding; SQLAlchemy initializes only when `DATABASE_URL` is configured.
 - Full Docker runtime startup still requires a local Docker daemon; Compose configuration itself validates.

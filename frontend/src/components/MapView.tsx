@@ -319,7 +319,11 @@ function fitMapToRoads(map: Map, roads: RoadFeatureCollection) {
   let hasCoordinates = false;
 
   roads.features.forEach((feature) => {
-    feature.geometry.coordinates.forEach((coordinate) => {
+    const coordinates =
+      feature.geometry.type === "MultiLineString"
+        ? feature.geometry.coordinates.flat()
+        : feature.geometry.coordinates;
+    coordinates.forEach((coordinate) => {
       bounds.extend(coordinate);
       hasCoordinates = true;
     });

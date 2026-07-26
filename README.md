@@ -18,11 +18,13 @@ Sprint 3 integrates a local cache of City of Eugene GIS infrastructure data, add
 
 ## Run Locally
 
-Copy `.env.example` to `.env`, then optionally start PostGIS:
+Copy `.env.example` to `.env`. PostGIS is optional scaffolding and can be started with its Compose profile:
 
 ```bash
-docker compose up -d postgres
+docker compose --profile database up -d postgres
 ```
+
+The Sprint 3 runtime does not require PostGIS. Set `DATABASE_URL` only when explicitly testing the future database path.
 
 Start the backend:
 

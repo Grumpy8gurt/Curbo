@@ -1,5 +1,7 @@
 # CURBO Sprint 2 Integration Report
 
+> Historical Sprint 2 evidence: counts and mock-mode observations below describe that sprint. Current Sprint 3 verification is recorded in `docs/manual-verification.md`.
+
 ## Summary
 
 - Repo structure: pass

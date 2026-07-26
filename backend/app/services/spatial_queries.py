@@ -18,6 +18,11 @@ def parse_bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
         min_lng, min_lat, max_lng, max_lat = [float(part) for part in parts]
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="bbox must contain numeric values") from exc
+    values = (min_lng, min_lat, max_lng, max_lat)
+    if not all(math.isfinite(value) for value in values):
+        raise HTTPException(status_code=422, detail="bbox values must be finite")
+    if min_lng > max_lng or min_lat > max_lat:
+        raise HTTPException(status_code=422, detail="bbox minimums must not exceed maximums")
     return min_lng, min_lat, max_lng, max_lat
 
 
@@ -25,6 +30,49 @@ def _point_within_bbox(point: list[float], bbox: tuple[float, float, float, floa
     lng, lat = point
     min_lng, min_lat, max_lng, max_lat = bbox
     return min_lng <= lng <= max_lng and min_lat <= lat <= max_lat
+
+
+def _segment_intersects_bbox(
+    start: list[float],
+    end: list[float],
+    bbox: tuple[float, float, float, float],
+) -> bool:
+    if _point_within_bbox(start, bbox) or _point_within_bbox(end, bbox):
+        return True
+
+    min_lng, min_lat, max_lng, max_lat = bbox
+    delta_lng = end[0] - start[0]
+    delta_lat = end[1] - start[1]
+    entering, leaving = 0.0, 1.0
+
+    for direction, distance in (
+        (-delta_lng, start[0] - min_lng),
+        (delta_lng, max_lng - start[0]),
+        (-delta_lat, start[1] - min_lat),
+        (delta_lat, max_lat - start[1]),
+    ):
+        if direction == 0:
+            if distance < 0:
+                return False
+            continue
+        ratio = distance / direction
+        if direction < 0:
+            entering = max(entering, ratio)
+        else:
+            leaving = min(leaving, ratio)
+        if entering > leaving:
+            return False
+    return True
+
+
+def _line_intersects_bbox(
+    coordinates: list[list[float]],
+    bbox: tuple[float, float, float, float],
+) -> bool:
+    return any(
+        _segment_intersects_bbox(coordinates[index], coordinates[index + 1], bbox)
+        for index in range(len(coordinates) - 1)
+    )
 
 
 def filter_feature_collection(
@@ -40,12 +88,10 @@ def filter_feature_collection(
         coordinates = geometry.get("coordinates", [])
         if geometry_type == "Point" and _point_within_bbox(coordinates, bbox):
             filtered_features.append(feature)
-        elif geometry_type == "LineString" and any(_point_within_bbox(point, bbox) for point in coordinates):
+        elif geometry_type == "LineString" and _line_intersects_bbox(coordinates, bbox):
             filtered_features.append(feature)
         elif geometry_type == "MultiLineString" and any(
-            _point_within_bbox(point, bbox)
-            for line in coordinates
-            for point in line
+            _line_intersects_bbox(line, bbox) for line in coordinates
         ):
             filtered_features.append(feature)
 
@@ -86,6 +132,13 @@ def _expanded_bbox(coordinates: list[list[float]], buffer_meters: int) -> tuple[
     return min(lngs) - buffer_lng, min(lats) - buffer_lat, max(lngs) + buffer_lng, max(lats) + buffer_lat
 
 
+def _flatten_line_coordinates(geometry: dict[str, Any]) -> list[list[float]]:
+    coordinates = geometry.get("coordinates", [])
+    if geometry.get("type") == "MultiLineString":
+        return [point for line in coordinates for point in line]
+    return coordinates
+
+
 def _count_near_features(
     feature_collection: dict[str, Any], bbox: tuple[float, float, float, float]
 ) -> int:
@@ -98,7 +151,7 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         raise HTTPException(status_code=404, detail=f"Road '{road_id}' was not found")
 
     road_properties = road_feature["properties"]
-    road_coordinates = road_feature["geometry"]["coordinates"]
+    road_coordinates = _flatten_line_coordinates(road_feature["geometry"])
     corridor_bbox = _expanded_bbox(road_coordinates, buffer_meters)
 
     known_curb_ramps = _count_near_features(store.curb_ramps, corridor_bbox)
@@ -133,9 +186,6 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         notes.append("Hydrant spacing may constrain curbside redesign options.")
     if parking_conflicts:
         notes.append("Parking conflicts should be reviewed before committing to curb changes.")
-    notes.append(
-        "Review sidewalk ramp coverage and hydrant conflicts before corridor redesign."
-    )
     if not notes:
         notes.append("No major issues found in the cached Eugene layer analysis.")
 

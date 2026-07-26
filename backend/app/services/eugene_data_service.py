@@ -97,8 +97,9 @@ class EugeneDataService:
             or feature.get("id")
             or index
         )
+        normalized_road_id = road_id if road_id.startswith("road_") else f"road_{road_id}"
         properties = {
-            "road_id": f"road_{road_id}",
+            "road_id": normalized_road_id,
             "name": raw.get("name") or raw.get("NAME") or raw.get("AIRSNAME") or "Unnamed road",
             "classification": str(
                 raw.get("classification") or raw.get("FCLASS") or "unknown"

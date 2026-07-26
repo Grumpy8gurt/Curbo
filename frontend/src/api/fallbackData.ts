@@ -19,7 +19,7 @@ const roads: RoadFeatureCollection = {
     {
       type: "Feature",
       properties: {
-        road_id: "rd_001",
+        road_id: "road_rd_001",
         name: "Willamette Street",
         classification: "arterial"
       },
@@ -35,7 +35,7 @@ const roads: RoadFeatureCollection = {
     {
       type: "Feature",
       properties: {
-        road_id: "rd_002",
+        road_id: "road_rd_002",
         name: "East 11th Avenue",
         classification: "collector"
       },
@@ -150,6 +150,7 @@ let reportCounter = 0;
 
 let annotations: AnnotationFeatureCollection = {
   type: "FeatureCollection",
+  metadata: { status: "local fallback", source: "CURBO in-memory fallback" },
   features: [
     createAnnotationFeature({
       annotationType: "missing curb cut",
@@ -167,9 +168,9 @@ let annotations: AnnotationFeatureCollection = {
 };
 
 const corridorSummaries: Record<string, CorridorSummary> = {
-  rd_001: {
-    corridorId: "cor_rd_001",
-    roadId: "rd_001",
+  road_rd_001: {
+    corridorId: "cor_road_rd_001",
+    roadId: "road_rd_001",
     name: "Willamette Street",
     knownCurbRamps: 8,
     possibleMissingCurbCuts: 2,
@@ -184,9 +185,9 @@ const corridorSummaries: Record<string, CorridorSummary> = {
       "A loading zone may conflict with future ramp reconstruction."
     ]
   },
-  rd_002: {
-    corridorId: "cor_rd_002",
-    roadId: "rd_002",
+  road_rd_002: {
+    corridorId: "cor_road_rd_002",
+    roadId: "road_rd_002",
     name: "East 11th Avenue",
     knownCurbRamps: 5,
     possibleMissingCurbCuts: 1,
@@ -280,7 +281,7 @@ export function createFallbackReport(corridorId: string, roadName: string): Corr
   return {
     reportId,
     roadId: corridorId,
-    downloadUrl: `/api/reports/${reportId}/download`,
-    summary: `${roadName} corridor report queued successfully. Fallback export includes counts and planning notes.`
+    downloadUrl: "",
+    summary: `${roadName} report preview generated locally. Connect the backend to download HTML.`
   };
 }

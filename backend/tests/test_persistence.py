@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -34,3 +35,19 @@ def test_annotations_persist_across_app_restarts(tmp_path):
         if feature["properties"]["annotation_id"] == annotation_id
     )
     assert persisted["properties"]["description"] == "Persistence restart check"
+
+
+def test_invalid_annotation_store_fails_without_overwriting_data(tmp_path):
+    annotation_file = tmp_path / "annotations.json"
+    annotation_file.write_text("{not valid json", encoding="utf-8")
+    settings = Settings(
+        database_url="sqlite://",
+        report_dir=str(tmp_path / "reports"),
+        annotation_file=str(annotation_file),
+    )
+
+    with pytest.raises(ValueError, match="Annotation store"):
+        with TestClient(create_app(settings)):
+            pass
+
+    assert annotation_file.read_text(encoding="utf-8") == "{not valid json"
