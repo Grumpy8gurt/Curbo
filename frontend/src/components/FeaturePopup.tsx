@@ -21,6 +21,7 @@ export function FeaturePopup({ feature }: FeaturePopupProps) {
       </div>
       <p>{feature.subtitle}</p>
       <p>Source: {feature.source}</p>
+      {feature.geometryLabel ? <p>Geometry: {feature.geometryLabel}</p> : null}
       {feature.status ? <p>Status: {feature.status}</p> : null}
       {feature.notes ? <p>Notes: {feature.notes}</p> : null}
       <p>

@@ -12,6 +12,11 @@ import type {
   RoadProperties
 } from "../types/layers";
 
+/**
+ * Normalised view of a selected map feature used across the FeaturePopup
+ * and App state.  Decouples the popup from knowing the internal shape of each
+ * layer's properties object.
+ */
 export interface SelectedFeatureDetails {
   id: string;
   layerId: LayerId;
@@ -20,9 +25,21 @@ export interface SelectedFeatureDetails {
   source: string;
   status?: string;
   notes?: string;
+  geometryLabel?: string;
   coordinates: Position;
 }
 
+/**
+ * Return the visual centre of a geometry for fly-to and popup placement.
+ *
+ * - Point:            returns the coordinate directly.
+ * - LineString:       returns the midpoint vertex (index floor(n/2)).
+ * - MultiLineString:  picks the middle line, then its midpoint vertex.
+ * - Fallback:         first coordinate of the first ring (Polygon).
+ *
+ * Using a vertex rather than a computed centroid is fast and sufficient for
+ * the short road segments in the Eugene dataset.
+ */
 export function getFeatureCenter(geometry: Geometry): Position {
   if (geometry.type === "Point") {
     return geometry.coordinates;
@@ -40,10 +57,21 @@ export function getFeatureCenter(geometry: Geometry): Position {
   return geometry.coordinates[0][0];
 }
 
+/**
+ * Format a road feature as a human-readable dropdown label.
+ * Example: "Willamette Street (arterial)"
+ */
 export function getRoadOptionLabel(feature: RoadFeature): string {
   return `${feature.properties.name} (${feature.properties.classification})`;
 }
 
+/**
+ * Map a raw GeoJSON Feature (from a MapLibre click event) to a
+ * SelectedFeatureDetails object based on which layer it came from.
+ *
+ * The `as unknown as X` casts are required because MapLibre's feature.toJSON()
+ * returns a plain object typed as Feature rather than our typed subtypes.
+ */
 export function toSelectedFeatureDetails(
   layerId: LayerId,
   feature: Feature
@@ -150,10 +178,15 @@ function fromAnnotationFeature(feature: AnnotationFeature): SelectedFeatureDetai
     source: properties.source,
     status: properties.status,
     notes: properties.description,
+    geometryLabel:
+      feature.geometry.type === "LineString"
+        ? `Line note (${feature.geometry.coordinates.length} vertices)`
+        : "Point note",
     coordinates: getFeatureCenter(feature.geometry)
   };
 }
 
+/** Type predicate: returns true when the geometry is a plain LineString. */
 export function isRoadGeometry(geometry: Geometry): geometry is LineStringGeometry {
   return geometry.type === "LineString";
 }

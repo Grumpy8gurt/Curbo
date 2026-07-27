@@ -62,6 +62,8 @@ export function ReportPanel({
       {reportResult ? (
         <div className="success-callout">
           <p>{reportResult.summary}</p>
+          {/* downloadUrl is empty in the fallback mode; the backend is needed
+              to serve the HTML file via the /api/reports/{id}/download endpoint. */}
           {reportResult.downloadUrl ? (
             <a href={apiUrl(reportResult.downloadUrl)} target="_blank" rel="noreferrer">
               Download HTML report

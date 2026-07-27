@@ -16,6 +16,8 @@ export function LayerPanel({
   return (
     <div className="layer-list">
       {LAYER_OPTIONS.map((layer) => (
+        // The "is-disabled" class greys out the row when the layer has no
+        // features (e.g. bike_lanes with no cache file).
         <label
           key={layer.id}
           className={`layer-item ${layerCounts[layer.id] === 0 ? "is-disabled" : ""}`}
@@ -28,6 +30,8 @@ export function LayerPanel({
             />
             {layer.label}
           </span>
+          {/* Show feature count and data status ("cached-eugene", "sample-fallback",
+              etc.) so planners know whether they are looking at live city data. */}
           <small>
             {layerCounts[layer.id] === 0
               ? "unavailable"

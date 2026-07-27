@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class PointGeometry(BaseModel):
+    """GeoJSON Point geometry.  Coordinates are [longitude, latitude] (x, y order)."""
     type: Literal["Point"] = "Point"
     coordinates: list[float]
 
@@ -18,6 +19,7 @@ class PointGeometry(BaseModel):
 
 
 class LineStringGeometry(BaseModel):
+    """GeoJSON LineString geometry.  At least two positions are required by the spec."""
     type: Literal["LineString"] = "LineString"
     coordinates: list[list[float]]
 
@@ -32,14 +34,22 @@ class LineStringGeometry(BaseModel):
 
 
 class MultiLineStringGeometry(BaseModel):
+    """
+    GeoJSON MultiLineString geometry.  Used for road segments that were split
+    across multiple line strings in the Eugene GIS export.
+    No validator applied beyond Pydantic's structural check — the spatial query
+    code handles both LineString and MultiLineString transparently.
+    """
     type: Literal["MultiLineString"] = "MultiLineString"
     coordinates: list[list[list[float]]]
 
 
+# Discriminated union of supported geometry types used in response schemas.
 Geometry = PointGeometry | LineStringGeometry | MultiLineStringGeometry
 
 
 class Feature(BaseModel):
+    """Generic GeoJSON Feature.  id is optional per the GeoJSON spec (RFC 7946)."""
     type: Literal["Feature"] = "Feature"
     id: str | int | None = None
     geometry: Geometry
@@ -47,6 +57,12 @@ class Feature(BaseModel):
 
 
 class FeatureCollection(BaseModel):
+    """
+    GeoJSON FeatureCollection with an optional metadata extension.
+    metadata is not part of the GeoJSON spec but is used throughout CURBO to
+    carry layer status ("cached-eugene", "sample-fallback", "unavailable") and
+    source attribution back to the frontend for display in the layer panel.
+    """
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[Feature] = Field(default_factory=list)
     metadata: dict[str, Any] | None = None

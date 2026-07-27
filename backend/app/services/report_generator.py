@@ -11,6 +11,17 @@ def generate_corridor_report(
     summary: dict[str, Any],
     include_layers: list[str],
 ) -> Path:
+    """
+    Write a self-contained HTML corridor report to `report_dir/<report_id>.html`.
+
+    All dynamic values are HTML-escaped via `html.escape` to prevent XSS if
+    planner-supplied text (e.g. road names) ever contains angle brackets.
+    The summary dict is rendered as a <pre> block for now — a future sprint
+    can template individual fields into a formatted table.
+
+    Returns the absolute path to the written file so the caller can register it
+    in the store and serve it via the download endpoint.
+    """
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"{report_id}.html"
     html = f"""<!DOCTYPE html>

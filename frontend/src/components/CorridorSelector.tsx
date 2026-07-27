@@ -19,6 +19,8 @@ export function CorridorSelector({
       <label className="field-label" htmlFor="corridor-selector">
         Corridor prototype
       </label>
+      {/* Empty string value represents "no selection"; onSelect receives an
+          empty string which App.tsx treats as clearing the corridor. */}
       <select
         id="corridor-selector"
         className="select-input"

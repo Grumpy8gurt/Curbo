@@ -7,6 +7,8 @@ import type {
 } from "../types/annotations";
 
 export async function getAnnotations(): Promise<AnnotationFeatureCollection> {
+  // getFallbackAnnotations is passed as a factory function (not called here)
+  // so the fallback data reflects any annotations added during the session.
   return fetchJsonWithFallback("/api/annotations", getFallbackAnnotations);
 }
 
@@ -18,11 +20,12 @@ export async function createAnnotation(
     headers: {
       "Content-Type": "application/json"
     },
+    // The backend schema accepts camelCase via AliasChoices, so annotationType
+    // is sent as-is from the frontend draft object.
     body: JSON.stringify({
       annotationType: annotation.annotationType,
       description: annotation.description,
-      latitude: annotation.latitude,
-      longitude: annotation.longitude,
+      geometry: annotation.geometry,
       source: "frontend"
     })
   });
