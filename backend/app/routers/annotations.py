@@ -26,9 +26,9 @@ def create_annotation(payload: AnnotationCreate, store: AppStore = Depends(get_s
     Create a new planner annotation.
 
     The payload supports two geometry formats:
-      - Explicit GeoJSON PointGeometry via the `geometry` field.
+      - Explicit GeoJSON Point or LineString via the `geometry` field.
       - Convenience `latitude` / `longitude` fields, which the schema validator
-        converts to a PointGeometry automatically.
+        converts to a Point automatically.
 
     The response is a GeoJSON Feature so the frontend can push it directly into
     the annotations layer without a separate GET.

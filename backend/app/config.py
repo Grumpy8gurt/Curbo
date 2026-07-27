@@ -56,7 +56,7 @@ class Settings(BaseSettings):
         """
         Walk up from this file to find the repo root by looking for the
         data/sample sentinel directory.  This handles three layouts:
-          • local dev:  Curbo/backend/app/config.py  → parents[2] = Curbo/
+          • local dev:  CURBO/backend/app/config.py  → parents[2] = CURBO/
           • Docker:     /app/app/config.py            → parents[1] = /app/
           • test run:   varies                        → falls back to parents[2]
         """

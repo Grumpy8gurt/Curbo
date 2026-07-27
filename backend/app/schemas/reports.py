@@ -8,7 +8,7 @@ class CorridorReportRequest(BaseModel):
         min_length=1,
         max_length=64,
         # Accept three name forms that appear across the codebase:
-        #   corridor_id — legacy Sprint 2 alias kept for backwards compatibility
+        #   corridor_id — legacy alias kept for backwards compatibility
         #   road_id     — canonical snake_case used in the API docs
         #   roadId      — camelCase used by the frontend
         validation_alias=AliasChoices("corridor_id", "road_id", "roadId"),

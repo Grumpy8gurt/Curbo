@@ -203,7 +203,7 @@ export function MapView({
     }
     setSourceData(map, DRAFT_SOURCE_ID, buildDraftCollection(drawingCoordinates));
     map.getCanvas().style.cursor = drawingMode ? "crosshair" : "";
-  }, [drawingMode, drawingCoordinates]);
+  }, [mapLoaded, drawingMode, drawingCoordinates]);
 
   // Effect 4: Fly to the selected road when it changes from the corridor
   // selector or from a direct map click.
