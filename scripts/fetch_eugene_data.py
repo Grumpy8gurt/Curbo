@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -19,26 +20,30 @@ LAYERS = {
         "EUGENE_ROADS_URL",
         "roads.geojson",
         "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugStLines/FeatureServer/0",
+        "OBJECTID,SEG_ID,EUGID,FCLASS,NAME,AIRSNAME",
     ),
     "sidewalk_ramps": (
         "EUGENE_SIDEWALK_RAMPS_URL",
         "sidewalk_ramps.geojson",
         "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugSidewalkRamps/FeatureServer/0",
+        "*",
     ),
     "hydrants": (
         "EUGENE_HYDRANTS_URL",
         "hydrants.geojson",
         "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugHydrants/FeatureServer/0",
+        "*",
     ),
     "bike_lanes": (
         "EUGENE_BIKE_LANES_URL",
         "bike_lanes.geojson",
         "https://services3.arcgis.com/F7NiRLGNbA2hh7gE/arcgis/rest/services/EugBikeways/FeatureServer/0",
+        "*",
     ),
 }
 
 
-def fetch_geojson(url: str) -> dict:
+def fetch_geojson(url: str, out_fields: str = "*") -> dict:
     if "f=geojson" in url.lower():
         return _fetch_page(url)
 
@@ -51,7 +56,7 @@ def fetch_geojson(url: str) -> dict:
         parameters = urlencode(
             {
                 "where": "1=1",
-                "outFields": "*",
+                "outFields": out_fields,
                 "returnGeometry": "true",
                 "outSR": 4326,
                 "resultOffset": offset,
@@ -91,12 +96,29 @@ def normalize(collection: dict, layer_name: str) -> dict:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--layer",
+        action="append",
+        choices=sorted(LAYERS),
+        help="Refresh only this layer; repeat to select multiple layers.",
+    )
+    arguments = parser.parse_args()
+    selected_layers = set(arguments.layer or LAYERS)
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     failures = 0
 
     cache_only = os.getenv("EUGENE_CACHE_ONLY", "").lower() in {"1", "true", "yes"}
 
-    for layer_name, (environment_name, filename, default_url) in LAYERS.items():
+    for layer_name, (
+        environment_name,
+        filename,
+        default_url,
+        out_fields,
+    ) in LAYERS.items():
+        if layer_name not in selected_layers:
+            continue
         destination = OUTPUT_DIR / filename
         url = None if cache_only else os.getenv(environment_name, default_url)
 
@@ -110,7 +132,7 @@ def main() -> int:
             continue
 
         try:
-            collection = normalize(fetch_geojson(url), layer_name)
+            collection = normalize(fetch_geojson(url, out_fields), layer_name)
             temporary = destination.with_suffix(".tmp")
             temporary.write_text(json.dumps(collection, indent=2), encoding="utf-8")
             temporary.replace(destination)

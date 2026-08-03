@@ -12,7 +12,7 @@ echo "Starting local development dependencies for CURBO..."
 echo "This scaffold currently provisions only the PostGIS database."
 echo "Frontend and backend services can be started using their local development instructions."
 
-docker compose up -d postgres
+docker compose --profile database up -d postgres
 
 echo "Postgres should now be starting on port 5432."
 echo "Copy .env.example to .env if you need to customize credentials or ports."
