@@ -31,7 +31,7 @@ export async function createAnnotation(
       annotationType: annotation.annotationType,
       description: annotation.description,
       geometry: annotation.geometry,
-      source: "frontend"
+      source: "CURBO reviewer"
     })
   });
 }

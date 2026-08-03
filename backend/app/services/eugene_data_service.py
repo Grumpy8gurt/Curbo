@@ -9,6 +9,19 @@ from typing import Any, Callable
 FeatureCollection = dict[str, Any]
 
 
+def _positive_dimension(value: Any) -> int | float | None:
+    """Return a published physical dimension only when it is positive.
+
+    The Eugene inventory uses zero as a sentinel for some unavailable widths
+    and lengths.  Treating those sentinels as measurements would create false
+    field-review prompts.  Slope values intentionally do not use this helper,
+    because a measured 0% slope is meaningful evidence.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value if value > 0 else None
+
+
 class EugeneDataService:
     """
     Load and normalize cached City of Eugene GIS layers into a consistent
@@ -167,8 +180,8 @@ class EugeneDataService:
         facilities export.
 
         Ramp_Truncated_Dome == 1 indicates a detectable-warning surface is
-        present, which is used as a proxy for ADA compliance when the
-        condition field is absent.
+        present. CURBO records that published condition when a general
+        condition field is absent; it is not a proxy for compliance.
         """
         raw = feature["properties"]
         ramp_id = str(
@@ -187,15 +200,23 @@ class EugeneDataService:
             # Eugene publishes widths in feet and slopes/grades as percentages.
             # Keep left/right measurements because dual ramps often have no
             # single aggregate Curb_Ramp_* value.
-            "width_feet": raw.get("width_feet", raw.get("Curb_Ramp_Width")),
-            "left_width_feet": raw.get(
-                "left_width_feet", raw.get("Curb_RampL_Width")
+            "width_feet": _positive_dimension(
+                raw.get("width_feet", raw.get("Curb_Ramp_Width"))
             ),
-            "right_width_feet": raw.get(
-                "right_width_feet", raw.get("Curb_RampR_Width")
+            "left_width_feet": _positive_dimension(
+                raw.get("left_width_feet", raw.get("Curb_RampL_Width"))
+            ),
+            "right_width_feet": _positive_dimension(
+                raw.get("right_width_feet", raw.get("Curb_RampR_Width"))
             ),
             "grade_percent": raw.get(
                 "grade_percent", raw.get("Curb_Ramp_Grade")
+            ),
+            "left_grade_percent": raw.get(
+                "left_grade_percent", raw.get("Curb_RampL_Grade")
+            ),
+            "right_grade_percent": raw.get(
+                "right_grade_percent", raw.get("Curb_RampR_Grade")
             ),
             "cross_slope_percent": raw.get(
                 "cross_slope_percent", raw.get("Curb_Ramp_Cross_Slope")

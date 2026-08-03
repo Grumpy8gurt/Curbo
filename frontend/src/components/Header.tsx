@@ -6,8 +6,11 @@ export function Header() {
         <h1>CURBO</h1>
       </div>
       <div className="header-chip">
-        <span className="status-dot" />
-        Eugene civic infrastructure workspace
+        <span className="status-dot" aria-hidden="true" />
+        <span>
+          <strong>Eugene, Oregon</strong>
+          Civic mobility review
+        </span>
       </div>
     </header>
   );

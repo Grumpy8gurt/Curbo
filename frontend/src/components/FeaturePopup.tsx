@@ -88,6 +88,19 @@ export function FeaturePopup({
           </ul>
         </div>
       ) : null}
+      {feature.fieldReviewPrompts?.length ? (
+        <div className="field-review-callout">
+          <strong>Field-review prompts</strong>
+          <ul>
+            {feature.fieldReviewPrompts.map((prompt) => (
+              <li key={prompt}>{prompt}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {feature.screeningDisclaimer ? (
+        <p className="screening-disclaimer">{feature.screeningDisclaimer}</p>
+      ) : null}
       {statusError ? <p className="error-callout">{statusError}</p> : null}
       <p>
         Location: {feature.coordinates[1].toFixed(4)}, {feature.coordinates[0].toFixed(4)}

@@ -27,8 +27,17 @@ export interface SelectedFeatureDetails {
   notes?: string;
   geometryLabel?: string;
   measurements?: string[];
+  fieldReviewPrompts?: string[];
+  screeningDisclaimer?: string;
   coordinates: Position;
 }
+
+const MINIMUM_RAMP_WIDTH_FEET = 4;
+const MAXIMUM_RAMP_GRADE_PERCENT = 8.33;
+const MAXIMUM_CROSS_SLOPE_PERCENT = 2.08;
+
+export const CURB_RAMP_SCREENING_DISCLAIMER =
+  "Screening only: published measurements are field-review prompts, not an accessibility-compliance finding. Verify measurement method, site geometry, exceptions, alterations, and applicable requirements.";
 
 /**
  * Return the visual centre of a geometry for fly-to and popup placement.
@@ -103,7 +112,7 @@ export function toSelectedFeatureDetails(
         layerId,
         title: "Map feature",
         subtitle: "Unconfigured layer",
-        source: "frontend",
+        source: "CURBO map",
         coordinates: getFeatureCenter(feature.geometry)
       };
   }
@@ -131,10 +140,13 @@ function fromCurbRampFeature(
     formatMeasurement("Left width", properties.left_width_feet, "ft"),
     formatMeasurement("Right width", properties.right_width_feet, "ft"),
     formatMeasurement("Grade", properties.grade_percent, "%"),
+    formatMeasurement("Left grade", properties.left_grade_percent, "%"),
+    formatMeasurement("Right grade", properties.right_grade_percent, "%"),
     formatMeasurement("Cross slope", properties.cross_slope_percent, "%"),
     formatMeasurement("Left cross slope", properties.left_cross_slope_percent, "%"),
     formatMeasurement("Right cross slope", properties.right_cross_slope_percent, "%")
   ].filter((measurement): measurement is string => measurement !== null);
+  const fieldReviewPrompts = getCurbRampFieldReviewPrompts(properties);
 
   return {
     id: properties.ramp_id,
@@ -147,6 +159,10 @@ function fromCurbRampFeature(
       properties.configuration ?? "unknown"
     }`,
     measurements,
+    fieldReviewPrompts,
+    screeningDisclaimer: measurements.length
+      ? CURB_RAMP_SCREENING_DISCLAIMER
+      : undefined,
     coordinates: getFeatureCenter(geometry)
   };
 }
@@ -156,9 +172,68 @@ function formatMeasurement(
   value: number | null | undefined,
   unit: string
 ): string | null {
-  return typeof value === "number" && Number.isFinite(value)
+  const isPhysicalWidth = unit === "ft";
+  return typeof value === "number" &&
+    Number.isFinite(value) &&
+    (!isPhysicalWidth || value > 0)
     ? `${label}: ${value} ${unit}`
     : null;
+}
+
+/** Compare published ramp values with documented dimensional references.
+ *
+ * The result is intentionally phrased as a field-review prompt. CURBO does
+ * not know the measurement method, site geometry, exceptions, alteration
+ * history, or governing requirements needed for a compliance determination.
+ */
+export function getCurbRampFieldReviewPrompts(
+  properties: CurbRampProperties
+): string[] {
+  const prompts: string[] = [];
+  const widthMeasurements: Array<[string, number | null | undefined]> = [
+    ["Width", properties.width_feet],
+    ["Left width", properties.left_width_feet],
+    ["Right width", properties.right_width_feet]
+  ];
+  const gradeMeasurements: Array<[string, number | null | undefined]> = [
+    ["Grade", properties.grade_percent],
+    ["Left grade", properties.left_grade_percent],
+    ["Right grade", properties.right_grade_percent]
+  ];
+  const crossSlopeMeasurements: Array<[string, number | null | undefined]> = [
+    ["Cross slope", properties.cross_slope_percent],
+    ["Left cross slope", properties.left_cross_slope_percent],
+    ["Right cross slope", properties.right_cross_slope_percent]
+  ];
+
+  widthMeasurements.forEach(([label, value]) => {
+    if (isFiniteMeasurement(value) && value > 0 && value < MINIMUM_RAMP_WIDTH_FEET) {
+      prompts.push(
+        `${label} ${value} ft is below the ${MINIMUM_RAMP_WIDTH_FEET} ft field-review reference.`
+      );
+    }
+  });
+  gradeMeasurements.forEach(([label, value]) => {
+    if (isFiniteMeasurement(value) && value > MAXIMUM_RAMP_GRADE_PERCENT) {
+      prompts.push(
+        `${label} ${value}% exceeds the ${MAXIMUM_RAMP_GRADE_PERCENT}% field-review reference.`
+      );
+    }
+  });
+  crossSlopeMeasurements.forEach(([label, value]) => {
+    if (isFiniteMeasurement(value) && value > MAXIMUM_CROSS_SLOPE_PERCENT) {
+      prompts.push(
+        `${label} ${value}% exceeds the ${MAXIMUM_CROSS_SLOPE_PERCENT}% field-review reference.`
+      );
+    }
+  });
+  return prompts;
+}
+
+function isFiniteMeasurement(
+  value: number | null | undefined
+): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function fromHydrantFeature(

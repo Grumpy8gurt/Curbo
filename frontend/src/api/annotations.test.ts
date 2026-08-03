@@ -19,7 +19,7 @@ describe("updateAnnotationStatus", () => {
         annotation_type: "curb cut" as const,
         description: "Measured curb cut",
         status: "reviewed" as const,
-        source: "frontend",
+        source: "CURBO reviewer",
         created_at: "2026-08-02T23:00:00Z"
       }
     };

@@ -9,9 +9,12 @@ CURBO is a geospatial planning dashboard for reviewing street, pedestrian, bicyc
 Sprint 4 completes the annotation review workflow. A user can create a point or
 line note, select it on the map, and move it through `pending`, `reviewed`,
 `confirmed`, or `rejected`; each change is persisted by the backend. Curb-ramp
-inspection now preserves and displays published width, grade, and cross-slope
-measurements when the Eugene source provides them. Explicit GeoJSON input is
-also range-checked before it can enter the annotation store.
+inspection preserves and displays published aggregate and left/right width,
+grade, and cross-slope measurements when the Eugene source provides them.
+Corridor review is status-aware: rejected notes remain in history without
+inflating active concerns, while human-readable signals explain a limited
+Low/Medium/High review-attention prompt. Explicit GeoJSON input is range-checked
+before it can enter the annotation store.
 
 ## Sprint 3 Expansion
 
@@ -25,8 +28,18 @@ Sprint 3 integrates a local cache of City of Eugene GIS infrastructure data, add
 - Persists backend annotations in `backend/data/annotations.json`.
 - Supports reviewer-created point and line annotations on the map.
 - Supports persistent annotation status review from the selected-feature popup.
-- Displays available curb-ramp dimensions with explicit feet and percent units.
-- Calculates a simple corridor summary from nearby Eugene layers and user annotations.
+- Displays available curb-ramp dimensions with units and screening-only
+  field-review prompts based on published dimensional references.
+- Calculates status-aware missing-curb-cut, bike-gap, intersection-safety,
+  parking/loading, and needs-review counts from nearby annotations.
+- Explains review attention and missing decision inputs without producing a
+  safety, project-priority, or accessibility-compliance score.
+- Refreshes the selected corridor and invalidates old report links after
+  annotation creation or status review.
+- Generates readable HTML evidence with labeled metrics, signals, notes, and
+  data limitations.
+- Presents CURBO as a self-contained civic mobility application; release and
+  implementation history stays in the engineering documentation.
 
 ## Run Locally
 
@@ -36,7 +49,7 @@ Copy `.env.example` to `.env`. PostGIS is optional scaffolding and can be starte
 docker compose --profile database up -d postgres
 ```
 
-The Sprint 3 runtime does not require PostGIS. Set `DATABASE_URL` only when explicitly testing the future database path.
+The current prototype does not require PostGIS. Set `DATABASE_URL` only when explicitly testing the future database path.
 In Docker Compose, annotations persist in the `annotation-data` volume at `/app/data/runtime/annotations.json`.
 
 Start the backend:
@@ -74,12 +87,13 @@ The road cache contains the complete 13,520-feature service snapshot captured on
 ## Tests
 
 ```bash
-cd backend && pytest
-cd frontend && npm test
-cd frontend && npm run build
-cd frontend && npm audit
-python scripts/validate_geojson.py
+(cd backend && python3 -m pytest -q)
+(cd frontend && npm test)
+(cd frontend && npm run build)
+(cd frontend && npm audit)
+python3 scripts/validate_geojson.py
 docker compose config
+./scripts/verify_sprint4.sh
 ```
 
 ## Architecture and Dependencies
@@ -91,9 +105,11 @@ docker compose config
 - `scripts/`: safe fetch and validation utilities.
 - `postgres`: PostGIS-ready service retained for future persistence work.
 
-Sprint 4 adds Vitest and Testing Library coverage for the frontend review
-control and annotation PATCH request. Backend tests cover invalid explicit
-geometry, unknown annotation updates, and curb-ramp dimension normalization.
+Sprint 4 includes 27 backend tests and 13 frontend tests in 7 files. Coverage
+includes geometry validation, restart persistence, rejected-vs-confirmed
+corridor effects, the synchronized API/fallback contract, report readability,
+curb-ramp sentinel handling, dimensional prompts, review UI behavior, and
+product-facing language boundaries.
 
 ## Intentionally Not Included
 
@@ -102,6 +118,18 @@ geometry, unknown annotation updates, and curb-ramp dimension normalization.
 - Full PostGIS ingestion or production-grade spatial analysis.
 - Live external GIS requests during normal app startup.
 - PDF report rendering.
+- Live crash/speed/volume ingestion, routing, project ranking, or a compliance
+  determination.
+
+## Sprint 4 Submission Summary
+
+- GitHub repository URL: https://github.com/Grumpy8gurt/Curbo
+- Sprint 4 branch: `agent/curbo-planner-quality`
+- Completed capability: status-aware annotation review persists reviewer
+  decisions and reflects active concerns in corridor analysis and reports.
+- Quality improvement: backend schema, frontend types, offline fallbacks,
+  readable HTML output, focused tests, limitations, and responsive review UI
+  agree on explainable user effects.
 
 ## Sprint 3 Submission Summary
 

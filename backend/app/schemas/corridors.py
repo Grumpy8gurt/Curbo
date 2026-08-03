@@ -35,5 +35,11 @@ class CorridorAnalysisResponse(BaseModel):
     userAnnotationsNearby: int
     busStopsNearby: int
     parkingConflicts: int
+    bikeLaneGaps: int
+    intersectionSafetyConcerns: int
+    annotationsNeedingReview: int
     bikeLaneFeasibility: Literal["Low", "Medium", "High"]
+    reviewPriority: Literal["Low", "Medium", "High"]
+    reviewSignals: list[str]
+    dataLimitation: str
     planningNotes: list[str]

@@ -8,6 +8,13 @@ from fastapi import HTTPException
 from app.schemas.corridors import CorridorAnalysisResponse
 
 
+DATA_LIMITATION = (
+    "Screening only: CURBO uses cached infrastructure and reviewer observations; "
+    "it does not include current crash, speed, traffic-volume, exposure, parking, "
+    "or right-of-way data and does not rank projects or determine compliance."
+)
+
+
 def parse_bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
     """
     Parse a bbox query parameter in the form "minLng,minLat,maxLng,maxLat".
@@ -200,6 +207,69 @@ def _count_near_features(
     return len(filter_feature_collection(feature_collection, bbox).get("features", []))
 
 
+def _count_annotation_type(features: list[dict[str, Any]], annotation_type: str) -> int:
+    """Count nearby annotations of one normalized reviewer-note type."""
+    return sum(
+        1
+        for feature in features
+        if feature.get("properties", {}).get("annotation_type") == annotation_type
+    )
+
+
+def _build_review_assessment(
+    *,
+    bike_lane_gaps: int,
+    intersection_safety_concerns: int,
+    parking_conflicts: int,
+    missing_curb_cuts: int,
+    bike_lanes: int,
+    annotations_needing_review: int,
+) -> tuple[str, list[str]]:
+    """Return the documented, explainable Sprint 4 review-attention signal.
+
+    This prototype heuristic highlights corridors for human attention.  It is
+    deliberately separate from engineering safety analysis or project ranking.
+    Counts are capped at two per concern category so repeated notes cannot
+    overwhelm the signal.
+    """
+    score = 0
+    signals: list[str] = []
+
+    weighted_concerns = (
+        (bike_lane_gaps, 2, "bike-lane gap observation"),
+        (intersection_safety_concerns, 2, "intersection-safety observation"),
+        (parking_conflicts, 1, "parking/loading conflict"),
+        (missing_curb_cuts, 1, "missing-curb-cut observation"),
+    )
+    for count, weight, label in weighted_concerns:
+        if count:
+            score += min(count, 2) * weight
+            suffix = "s" if count != 1 else ""
+            signals.append(f"{count} active {label}{suffix} near the corridor.")
+
+    if bike_lanes == 0:
+        score += 1
+        signals.append("No intersecting mapped bicycle facility was found in the cached layer.")
+
+    if annotations_needing_review:
+        suffix = "s" if annotations_needing_review != 1 else ""
+        verb = "need" if annotations_needing_review != 1 else "needs"
+        signals.append(
+            f"{annotations_needing_review} nearby annotation{suffix} still {verb} review."
+        )
+
+    if not signals:
+        signals.append("No active corridor concerns were found in nearby reviewer annotations.")
+
+    if score >= 4:
+        priority = "High"
+    elif score >= 2:
+        priority = "Medium"
+    else:
+        priority = "Low"
+    return priority, signals
+
+
 def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysisResponse:
     """
     Compute a planning summary for the corridor around a given road segment.
@@ -209,16 +279,19 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
       2. Flatten its coordinates and build an expanded bbox with the requested
          buffer distance.
       3. Count features from each layer that fall within the bbox.
-      4. Compute a simple feasibility score:
+      4. Compute the existing preliminary feasibility signal:
            base 4  +  up to 2 for existing bike lanes
                    -  missing curb-cut annotations
                    -  up to 2 for hydrant density (potential curbside constraint)
-      5. Map the score to a Low/Medium/High label for the report.
+      5. Derive status-aware concern counts and the documented, explainable
+         Low/Medium/High review-attention signal.
 
     Limitations at prototype scale:
     - Does not use actual road geometry for proximity; the bbox is a rectangle
       aligned to the road extent, not a true buffer polygon.
-    - Bus stops and parking conflicts are always 0 (no data source yet).
+    - Bus stops remain 0 because no transit-stop source is cached.
+    - Parking/loading conflicts come from reviewer annotations, not an
+      authoritative parking inventory.
     """
     road_feature = store.get_road_feature(road_id)
     if road_feature is None:
@@ -236,13 +309,26 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         store.get_annotations_feature_collection(), corridor_bbox
     )
 
-    missing_curb_cuts = sum(
-        1
-        for feature in annotation_features["features"]
-        if feature["properties"].get("annotation_type") == "missing curb cut"
+    historical_annotations = annotation_features["features"]
+    active_annotations = [
+        feature
+        for feature in historical_annotations
+        if feature.get("properties", {}).get("status") != "rejected"
+    ]
+    missing_curb_cuts = _count_annotation_type(active_annotations, "missing curb cut")
+    bike_lane_gaps = _count_annotation_type(active_annotations, "bike lane gap")
+    intersection_safety_concerns = _count_annotation_type(
+        active_annotations, "intersection safety"
     )
-    annotation_count = len(annotation_features["features"])
-    parking_conflicts = 0
+    parking_conflicts = _count_annotation_type(
+        active_annotations, "parking/loading conflict"
+    )
+    annotations_needing_review = sum(
+        1
+        for feature in active_annotations
+        if feature.get("properties", {}).get("status") == "pending"
+    )
+    annotation_count = len(historical_annotations)
     bus_stops = 0
 
     # Feasibility heuristic: starts at 4, improved by bike-lane presence,
@@ -255,9 +341,22 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
     else:
         bike_lane_feasibility = "Low"
 
+    review_priority, review_signals = _build_review_assessment(
+        bike_lane_gaps=bike_lane_gaps,
+        intersection_safety_concerns=intersection_safety_concerns,
+        parking_conflicts=parking_conflicts,
+        missing_curb_cuts=missing_curb_cuts,
+        bike_lanes=bike_lanes,
+        annotations_needing_review=annotations_needing_review,
+    )
+
     notes = []
     if missing_curb_cuts:
         notes.append("Possible missing curb cuts near the selected corridor should be field-checked.")
+    if bike_lane_gaps:
+        notes.append("Reviewer-observed bicycle-network gaps should be checked for continuity.")
+    if intersection_safety_concerns:
+        notes.append("Intersection-safety observations should be reviewed in the field.")
     if hydrants:
         notes.append("Hydrant spacing may constrain curbside redesign options.")
     if parking_conflicts:
@@ -276,6 +375,12 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         userAnnotationsNearby=annotation_count,
         busStopsNearby=bus_stops,
         parkingConflicts=parking_conflicts,
+        bikeLaneGaps=bike_lane_gaps,
+        intersectionSafetyConcerns=intersection_safety_concerns,
+        annotationsNeedingReview=annotations_needing_review,
         bikeLaneFeasibility=bike_lane_feasibility,
+        reviewPriority=review_priority,
+        reviewSignals=review_signals,
+        dataLimitation=DATA_LIMITATION,
         planningNotes=notes,
     )

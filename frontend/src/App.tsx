@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAnnotation,
   getAnnotations,
@@ -82,6 +82,9 @@ export default function App() {
   const [corridorLoading, setCorridorLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [activityMessage, setActivityMessage] = useState("Loading Eugene GIS layers...");
+  const selectedRoadIdRef = useRef<string | null>(null);
+  const corridorRequestIdRef = useRef(0);
+  const reportRequestIdRef = useRef(0);
 
   // Load all five layers in parallel on mount.  Individual layer failures are
   // caught by fetchJsonWithFallback in the API client, so only a total network
@@ -110,7 +113,7 @@ export default function App() {
         setBikeLanes(nextBikeLanes);
         setActivityMessage("Eugene infrastructure layers loaded. Ready for corridor review.");
       } catch {
-        setActivityMessage("Some Eugene layers are unavailable. Local fallbacks remain active.");
+        setActivityMessage("Some Eugene layers are unavailable. Available map information is shown.");
       } finally {
         setLoading(false);
       }
@@ -119,32 +122,69 @@ export default function App() {
     void loadData();
   }, []);
 
-  // Wrapped in useCallback so MapView's onRoadSelect prop reference is stable
-  // across re-renders and does not retrigger the map interaction effect.
-  const handleRoadSelection = useCallback(async (roadId: string) => {
-    setSelectedRoadId(roadId || null);
-    // Clear the previous report when the road changes so stale data is not shown.
-    setReportResult(null);
-
-    if (!roadId) {
-      setCorridorSummary(null);
-      return;
+  const refreshCorridor = useCallback(async (
+    roadId: string,
+    messages: {
+      loading: string;
+      success: (summary: CorridorSummary) => string;
+      failure: string;
     }
-
+  ): Promise<boolean> => {
+    const requestId = ++corridorRequestIdRef.current;
+    // Reports are immutable snapshots. Invalidate the current link and any
+    // in-flight generation whenever the corridor analysis is refreshed.
+    reportRequestIdRef.current += 1;
+    setReportResult(null);
+    setReportLoading(false);
     setCorridorLoading(true);
-    setActivityMessage("Running corridor analysis...");
+    setActivityMessage(messages.loading);
 
     try {
       const summary = await analyzeCorridor(roadId);
+      if (requestId !== corridorRequestIdRef.current) {
+        return false;
+      }
       setCorridorSummary(summary);
-      setActivityMessage(`Loaded corridor summary for ${summary.name}.`);
+      setActivityMessage(messages.success(summary));
+      return true;
     } catch {
+      if (requestId !== corridorRequestIdRef.current) {
+        return false;
+      }
       setCorridorSummary(null);
-      setActivityMessage("Corridor analysis failed. Verify the selected road and backend.");
+      setActivityMessage(messages.failure);
+      return false;
     } finally {
-      setCorridorLoading(false);
+      if (requestId === corridorRequestIdRef.current) {
+        setCorridorLoading(false);
+      }
     }
   }, []);
+
+  // Wrapped in useCallback so MapView's onRoadSelect prop reference is stable
+  // across re-renders and does not retrigger the map interaction effect.
+  const handleRoadSelection = useCallback(async (roadId: string) => {
+    const nextRoadId = roadId || null;
+    selectedRoadIdRef.current = nextRoadId;
+    setSelectedRoadId(nextRoadId);
+
+    if (!nextRoadId) {
+      corridorRequestIdRef.current += 1;
+      reportRequestIdRef.current += 1;
+      setCorridorLoading(false);
+      setReportLoading(false);
+      setCorridorSummary(null);
+      setReportResult(null);
+      setActivityMessage("Corridor selection cleared.");
+      return;
+    }
+
+    await refreshCorridor(nextRoadId, {
+      loading: "Running corridor analysis...",
+      success: (summary) => `Loaded corridor summary for ${summary.name}.`,
+      failure: "Corridor analysis is unavailable. Select another road or try again."
+    });
+  }, [refreshCorridor]);
 
   // Adapter so MapView can call onRoadSelect with a plain string instead of
   // returning a Promise, keeping the component signature free of async concerns.
@@ -247,7 +287,17 @@ export default function App() {
     setDrawingMode(null);
     setDrawingCoordinates([]);
     setAnnotationGeometry(null);
-    setActivityMessage("New annotation added to the map.");
+    const roadId = selectedRoadIdRef.current;
+    if (!roadId) {
+      setActivityMessage("New annotation saved and added to the map.");
+      return;
+    }
+    await refreshCorridor(roadId, {
+      loading: "Annotation saved. Refreshing the selected corridor...",
+      success: (summary) =>
+        `Annotation saved; ${summary.name} review signals are current.`,
+      failure: "Annotation saved, but the selected corridor could not be refreshed."
+    });
   }
 
   async function handleAnnotationStatusChange(
@@ -266,7 +316,17 @@ export default function App() {
         ? { ...current, status: updated.properties.status }
         : current
     );
-    setActivityMessage(`Annotation status updated to ${status}.`);
+    const roadId = selectedRoadIdRef.current;
+    if (!roadId) {
+      setActivityMessage(`Annotation status saved as ${status}.`);
+      return;
+    }
+    await refreshCorridor(roadId, {
+      loading: `Annotation status saved as ${status}. Refreshing the selected corridor...`,
+      success: (summary) =>
+        `Annotation status saved as ${status}; ${summary.name} review signals are current.`,
+      failure: `Annotation status saved as ${status}, but the selected corridor could not be refreshed.`
+    });
   }
 
   async function handleGenerateReport() {
@@ -276,19 +336,26 @@ export default function App() {
 
     setReportLoading(true);
     setActivityMessage(`Generating a corridor report for ${corridorSummary.name}...`);
+    const requestId = ++reportRequestIdRef.current;
 
     try {
       const result = await generateCorridorReport(
         corridorSummary.roadId,
         corridorSummary.name
       );
-      setReportResult(result);
-      setActivityMessage(result.summary);
+      if (requestId === reportRequestIdRef.current) {
+        setReportResult(result);
+        setActivityMessage(result.summary);
+      }
     } catch {
-      setReportResult(null);
-      setActivityMessage("Report generation failed. Verify the backend and try again.");
+      if (requestId === reportRequestIdRef.current) {
+        setReportResult(null);
+        setActivityMessage("Report generation is unavailable. Please try again.");
+      }
     } finally {
-      setReportLoading(false);
+      if (requestId === reportRequestIdRef.current) {
+        setReportLoading(false);
+      }
     }
   }
 
@@ -297,8 +364,8 @@ export default function App() {
       <Header />
       {/* Activity banner doubles as a loading indicator (animated dot) and
           a status log showing the most recent operation outcome. */}
-      <div className="activity-banner">
-        <span className={`status-dot ${loading ? "is-loading" : ""}`} />
+      <div className="activity-banner" role="status" aria-live="polite" aria-atomic="true">
+        <span className={`status-dot ${loading ? "is-loading" : ""}`} aria-hidden="true" />
         {activityMessage}
       </div>
       <Layout
@@ -306,7 +373,7 @@ export default function App() {
           <>
             <Sidebar
               title="Map layers"
-              description="Toggle cached City of Eugene infrastructure layers and user annotations."
+              description="Explore City of Eugene infrastructure and reviewer annotations."
             >
               <LayerPanel
                 visibility={visibility}
@@ -316,13 +383,6 @@ export default function App() {
                   hydrants: hydrants.features.length,
                   bikeLanes: bikeLanes.features.length,
                   annotations: annotations.features.length
-                }}
-                layerStatuses={{
-                  roads: roads.metadata?.status ?? "local fallback",
-                  sidewalkRamps: sidewalkRamps.metadata?.status ?? "local fallback",
-                  hydrants: hydrants.metadata?.status ?? "local fallback",
-                  bikeLanes: bikeLanes.metadata?.status ?? "local fallback",
-                  annotations: annotations.metadata?.status ?? "persistent"
                 }}
                 onToggle={toggleLayer}
               />
@@ -379,7 +439,7 @@ export default function App() {
           <>
             <Sidebar
               title="Corridor report"
-              description="Review a lightweight summary calculated from the current Eugene layers."
+              description="Review infrastructure and annotation evidence for the selected corridor."
             >
               <ReportPanel
                 summary={corridorSummary}
@@ -390,13 +450,14 @@ export default function App() {
             </Sidebar>
 
             <Sidebar
-              title="Working assumptions"
-              description="Sprint 3 uses cached Eugene GIS data with offline-safe fallbacks."
+              title="Review guidance"
+              description="Use CURBO as a screening and documentation tool."
             >
               <ul className="assumption-list">
-                <li>The backend serves normalized files from the local Eugene data cache.</li>
-                <li>The frontend falls back to small local samples if the API is unavailable.</li>
-                <li>User annotations persist to a local JSON file through the backend.</li>
+                <li>Map layers reflect the infrastructure records currently available to CURBO.</li>
+                <li>Reviewer annotations remain visible as part of the corridor history.</li>
+                <li>Rejected annotations are excluded from active concern counts.</li>
+                <li>Review attention is explainable screening, not a safety or project score.</li>
               </ul>
             </Sidebar>
           </>
