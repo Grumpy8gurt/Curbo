@@ -1,6 +1,6 @@
 # API Contract
 
-This document reflects the verified CURBO Sprint 3 integration contract.
+This document reflects the verified CURBO Sprint 4 integration contract.
 
 ## Backend Routes
 
@@ -21,6 +21,11 @@ This document reflects the verified CURBO Sprint 3 integration contract.
 ### `GET /api/layers/sidewalk-ramps`
 
 - Response: GeoJSON `FeatureCollection`
+- Available normalized measurements use `width_feet`,
+  `left_width_feet`, `right_width_feet`, `grade_percent`,
+  `cross_slope_percent`, `left_cross_slope_percent`, and
+  `right_cross_slope_percent`. Values may be null when the City source does
+  not publish a measurement.
 
 ### `GET /api/layers/curb-ramps`
 
@@ -45,6 +50,9 @@ points or line segments intersecting the box are returned.
 ### `GET /api/annotations`
 
 - Purpose: return annotations in the same GeoJSON feature format the frontend stores in local state
+- Geometry: `Point` or `LineString`
+- Reviewer annotations are non-authoritative notes. They do not add to the City curb-ramp, hydrant, or bike-lane inventory counts.
+- Supported types: `curb cut`, `missing curb cut`, `fire hydrant`, `bike lane gap`, `proposed bike lane`, `obstruction`, `parking/loading conflict`, `intersection safety`, `drainage/utility conflict`, `bad data`, and `other`
 - Response:
 
 ```json
@@ -77,17 +85,25 @@ points or line segments intersecting the box are returned.
 
 ```json
 {
-  "annotationType": "missing curb cut",
-  "description": "Potential curb issue at the corner.",
-  "latitude": 44.0515,
-  "longitude": -123.091
+  "annotationType": "proposed bike lane",
+  "description": "Connect the existing facilities through this block.",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-123.091, 44.0515],
+      [-123.089, 44.052]
+    ]
+  }
 }
 ```
 
+- Point annotations may alternatively send `latitude` and `longitude` instead of `geometry`.
 - Response: one annotation `Feature`
 
 ### `PATCH /api/annotations/{annotation_id}`
 
+- Purpose: persist a user-selected review state from the map popup
+- Supported states: `pending`, `reviewed`, `confirmed`, and `rejected`
 - Request:
 
 ```json

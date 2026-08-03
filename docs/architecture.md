@@ -1,8 +1,16 @@
 # CURBO Architecture Overview
 
+## Sprint 4 Evolution
+
+Sprint 4 keeps the existing React, FastAPI, and atomic JSON persistence
+boundaries. It completes the frontend path to the existing annotation PATCH
+endpoint and extends Eugene sidewalk-ramp normalization so published
+measurements reach the inspection popup. No new service or database
+responsibility was introduced.
+
 ## Sprint 3 Evolution
 
-Sprint 2 established the React/MapLibre frontend, FastAPI routes, sample GeoJSON layers, annotations, corridor summaries, and HTML reports. Sprint 3 keeps that foundation but replaces the mock-first layer path with normalized, cached City of Eugene GIS data. It also removes the active ML and image-upload architecture.
+Sprint 3 evolves the existing React/MapLibre frontend, FastAPI routes, sample GeoJSON layers, annotations, corridor summaries, and HTML reports. It replaces the mock-first layer path with normalized, cached City of Eugene GIS data and removes the active ML and image-upload architecture.
 
 ## Runtime Architecture
 
@@ -20,6 +28,15 @@ Frontend API failure
 POST /api/annotations
   -> AppStore
   -> backend/data/annotations.json
+
+PATCH /api/annotations/{annotation_id}
+  -> AppStore status update
+  -> backend/data/annotations.json
+
+Eugene sidewalk-ramp dimensions
+  -> EugeneDataService normalization
+  -> curb-ramp Feature properties
+  -> selected-feature popup
 ```
 
 PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the Sprint 3 runtime does not require a database or import the Eugene cache into PostGIS.
@@ -27,10 +44,11 @@ PostgreSQL/PostGIS remains available through the optional Docker `database` prof
 ## Frontend Responsibilities
 
 - Center the planning map on Eugene, Oregon.
-- Render roads, sidewalk ramps, fire hydrants, bike facilities, and annotations.
+- Render roads, line-following street names, sidewalk ramps, fire hydrants, bike facilities, and annotations.
 - Show feature counts and a clear unavailable state for empty layers.
-- Use backend APIs by default and compact local fallbacks when the API cannot be reached.
-- Support annotation creation and corridor selection without ML-oriented UI.
+- Use backend APIs by default and compact local fallbacks only when the API cannot be reached; surface HTTP errors in the UI.
+- Support point and line annotation creation, persistent status review, and corridor selection without ML-oriented UI.
+- Display curb-ramp width, grade, and cross-slope values with source units when available.
 
 ## Backend Responsibilities
 
@@ -38,15 +56,18 @@ PostgreSQL/PostGIS remains available through the optional Docker `database` prof
 - Keep `/api/layers/curb-ramps` as an alias for `/api/layers/sidewalk-ramps`.
 - Normalize source-specific Eugene fields into frontend-facing properties.
 - Filter layers by optional bounding box and calculate lightweight corridor metrics.
-- Persist annotations and generate simple HTML corridor reports.
+- Persist annotation creation and status updates and generate simple HTML corridor reports.
+- Reject explicit GeoJSON positions outside valid longitude/latitude ranges.
 
 ## Data Layer Responsibilities
 
-- `data/eugene/` is the normal runtime source for roads, sidewalk ramps, hydrants, and bike lanes.
-- `data/sample/` is retained as a compact backend fallback and as Sprint 1/2 evidence.
+- `data/eugene/` is the normal runtime source. The road cache contains the complete service snapshot; the other infrastructure layers remain bounded demonstration extracts.
+- `data/sample/` is retained as a compact backend fallback from the earlier prototype.
 - `scripts/fetch_eugene_data.py` performs an optional, API-key-free cache refresh from configured URLs.
+- Selective refreshes such as `--layer roads` avoid replacing unrelated cached layers.
 - `scripts/validate_geojson.py` validates both Eugene and sample datasets.
 - The application never requires a live external GIS service at startup.
+- Street labels use a locally cached MapLibre glyph range so they remain available in the offline demo.
 
 ## Persistence Choice
 

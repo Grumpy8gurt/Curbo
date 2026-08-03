@@ -7,6 +7,7 @@ This React + TypeScript + Vite frontend is the Eugene-focused planning dashboard
 1. From the repository's `frontend/` directory, run `npm install`.
 2. Start the dev server with `npm run dev`.
 3. Build a production bundle with `npm run build`.
+4. Run component and API tests with `npm test`.
 
 The app uses Vite's default dev port `5173`.
 
@@ -26,9 +27,12 @@ VITE_API_BASE_URL=http://localhost:8000
 ## Current scope
 
 - MapLibre map centered on Eugene, Oregon
-- Layer toggles for Eugene roads, sidewalk ramps, hydrants, bike facilities, and annotations
+- Layer toggles for the complete 13,520-segment Eugene road snapshot, bounded sidewalk-ramp, hydrant, and bike-facility extracts, and user annotations
+- Collision-aware directional street-name labels with locally bundled map glyphs
 - Corridor selection and summary panel
-- Annotation prototype
+- Reviewer annotation tools for map-placed points and drawn lines
+- Persistent annotation review status controls in the selected-feature popup
+- Available curb-ramp width and slope measurements with explicit units
 - Backend corridor summaries and report generation with fallback behavior
 
 ## Live API Expectations
@@ -40,6 +44,7 @@ When `VITE_USE_MOCK_API=false`, the frontend expects:
 - `GET /api/layers/sidewalk-ramps`
 - `GET /api/layers/hydrants`
 - `GET /api/layers/bike-lanes`
-- `POST /api/annotations` to accept `{ annotationType, description, latitude, longitude }`
+- `POST /api/annotations` to accept `{ annotationType, description, geometry }` with GeoJSON `Point` or `LineString` geometry
+- `PATCH /api/annotations/{annotation_id}` to accept a review `status`
 - `POST /api/corridors/analyze` to accept `{ roadId }`
 - `POST /api/reports/corridor` to accept `{ roadId, format }` or `{ corridor_id, format }`
