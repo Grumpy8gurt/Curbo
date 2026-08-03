@@ -26,6 +26,7 @@ export interface SelectedFeatureDetails {
   status?: string;
   notes?: string;
   geometryLabel?: string;
+  measurements?: string[];
   coordinates: Position;
 }
 
@@ -125,6 +126,16 @@ function fromCurbRampFeature(
   properties: CurbRampProperties,
   geometry: Geometry
 ): SelectedFeatureDetails {
+  const measurements = [
+    formatMeasurement("Width", properties.width_feet, "ft"),
+    formatMeasurement("Left width", properties.left_width_feet, "ft"),
+    formatMeasurement("Right width", properties.right_width_feet, "ft"),
+    formatMeasurement("Grade", properties.grade_percent, "%"),
+    formatMeasurement("Cross slope", properties.cross_slope_percent, "%"),
+    formatMeasurement("Left cross slope", properties.left_cross_slope_percent, "%"),
+    formatMeasurement("Right cross slope", properties.right_cross_slope_percent, "%")
+  ].filter((measurement): measurement is string => measurement !== null);
+
   return {
     id: properties.ramp_id,
     layerId: "sidewalkRamps",
@@ -132,9 +143,22 @@ function fromCurbRampFeature(
     subtitle: "Sidewalk ramp",
     source: properties.source ?? "City of Eugene GIS",
     status: properties.status,
-    notes: `Condition: ${properties.condition}`,
+    notes: `Condition: ${properties.condition}; configuration: ${
+      properties.configuration ?? "unknown"
+    }`,
+    measurements,
     coordinates: getFeatureCenter(geometry)
   };
+}
+
+function formatMeasurement(
+  label: string,
+  value: number | null | undefined,
+  unit: string
+): string | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${label}: ${value} ${unit}`
+    : null;
 }
 
 function fromHydrantFeature(

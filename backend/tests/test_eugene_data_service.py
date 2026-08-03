@@ -24,3 +24,27 @@ def test_road_normalization_does_not_duplicate_prefix():
     normalized = EugeneDataService._normalize_road(feature, 1)
 
     assert normalized["properties"]["road_id"] == "road_example"
+
+
+def test_sidewalk_ramp_normalization_preserves_dimensions():
+    feature = {
+        "type": "Feature",
+        "geometry": {"type": "Point", "coordinates": [-123.1, 44.0]},
+        "properties": {
+            "OBJECTID": 42,
+            "Ramp_Configuration": "dual",
+            "Curb_RampL_Width": 4.9,
+            "Curb_RampR_Width": 5.0,
+            "Curb_RampL_Cross_Slope": 1.1,
+            "Curb_RampR_Cross_Slope": 1.4,
+        },
+    }
+
+    normalized = EugeneDataService._normalize_sidewalk_ramp(feature, 1)
+    properties = normalized["properties"]
+
+    assert properties["configuration"] == "dual"
+    assert properties["left_width_feet"] == 4.9
+    assert properties["right_width_feet"] == 5.0
+    assert properties["left_cross_slope_percent"] == 1.1
+    assert properties["right_cross_slope_percent"] == 1.4

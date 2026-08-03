@@ -24,13 +24,14 @@ export type AnnotationKind =
 // Annotations can be either a point (spot issue) or a line (corridor issue).
 export type AnnotationGeometry = PointGeometry | LineStringGeometry;
 export type AnnotationDrawMode = "point" | "line";
+export type AnnotationStatus = "pending" | "reviewed" | "confirmed" | "rejected";
 
 export interface AnnotationProperties {
   annotation_id: string;
   annotation_type: AnnotationKind;
   description: string;
   // Status lifecycle: pending → reviewed → confirmed | rejected
-  status: "pending" | "reviewed" | "confirmed" | "rejected";
+  status: AnnotationStatus;
   source: string;
   // ISO 8601 string (the backend serialises datetime to isoformat before sending).
   created_at: string;

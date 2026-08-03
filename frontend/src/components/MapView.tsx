@@ -6,7 +6,8 @@ import maplibregl, {
 } from "maplibre-gl";
 import type {
   AnnotationDrawMode,
-  AnnotationFeatureCollection
+  AnnotationFeatureCollection,
+  AnnotationStatus
 } from "../types/annotations";
 import type { Feature, Position } from "../types/geojson";
 import type {
@@ -39,6 +40,10 @@ interface MapViewProps {
   onFeatureSelect: (feature: SelectedFeatureDetails) => void;
   onRoadSelect: (roadId: string) => void;
   onDrawClick: (position: Position) => void;
+  onAnnotationStatusChange: (
+    annotationId: string,
+    status: AnnotationStatus
+  ) => Promise<void>;
 }
 
 // Stable string constants for MapLibre source and layer IDs.
@@ -101,7 +106,8 @@ export function MapView({
   drawingCoordinates,
   onFeatureSelect,
   onRoadSelect,
-  onDrawClick
+  onDrawClick,
+  onAnnotationStatusChange
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
@@ -239,7 +245,10 @@ export function MapView({
           <span><i className="legend-swatch is-conflict" /> Conflict</span>
         </div>
       ) : null}
-      <FeaturePopup feature={selectedFeature} />
+      <FeaturePopup
+        feature={selectedFeature}
+        onAnnotationStatusChange={onAnnotationStatusChange}
+      />
     </div>
   );
 }

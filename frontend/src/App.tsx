@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { createAnnotation, getAnnotations } from "./api/annotations";
+import {
+  createAnnotation,
+  getAnnotations,
+  updateAnnotationStatus
+} from "./api/annotations";
 import {
   getBikeLanes,
   getHydrants,
@@ -20,7 +24,8 @@ import type {
   AnnotationDrawMode,
   AnnotationDraft,
   AnnotationFeatureCollection,
-  AnnotationGeometry
+  AnnotationGeometry,
+  AnnotationStatus
 } from "./types/annotations";
 import type { CorridorSummary } from "./types/corridors";
 import type { Position } from "./types/geojson";
@@ -245,6 +250,25 @@ export default function App() {
     setActivityMessage("New annotation added to the map.");
   }
 
+  async function handleAnnotationStatusChange(
+    annotationId: string,
+    status: AnnotationStatus
+  ) {
+    const updated = await updateAnnotationStatus(annotationId, status);
+    setAnnotations((current) => ({
+      ...current,
+      features: current.features.map((feature) =>
+        feature.properties.annotation_id === annotationId ? updated : feature
+      )
+    }));
+    setSelectedFeature((current) =>
+      current?.layerId === "annotations" && current.id === annotationId
+        ? { ...current, status: updated.properties.status }
+        : current
+    );
+    setActivityMessage(`Annotation status updated to ${status}.`);
+  }
+
   async function handleGenerateReport() {
     if (!corridorSummary) {
       return;
@@ -348,6 +372,7 @@ export default function App() {
             onFeatureSelect={setSelectedFeature}
             onRoadSelect={handleMapRoadSelection}
             onDrawClick={handleDrawClick}
+            onAnnotationStatusChange={handleAnnotationStatusChange}
           />
         }
         aside={

@@ -184,6 +184,28 @@ class EugeneDataService:
             "condition": raw.get("condition")
             or ("detectable warning present" if has_dome == 1 else "not assessed"),
             "configuration": raw.get("Ramp_Configuration") or "unknown",
+            # Eugene publishes widths in feet and slopes/grades as percentages.
+            # Keep left/right measurements because dual ramps often have no
+            # single aggregate Curb_Ramp_* value.
+            "width_feet": raw.get("width_feet", raw.get("Curb_Ramp_Width")),
+            "left_width_feet": raw.get(
+                "left_width_feet", raw.get("Curb_RampL_Width")
+            ),
+            "right_width_feet": raw.get(
+                "right_width_feet", raw.get("Curb_RampR_Width")
+            ),
+            "grade_percent": raw.get(
+                "grade_percent", raw.get("Curb_Ramp_Grade")
+            ),
+            "cross_slope_percent": raw.get(
+                "cross_slope_percent", raw.get("Curb_Ramp_Cross_Slope")
+            ),
+            "left_cross_slope_percent": raw.get(
+                "left_cross_slope_percent", raw.get("Curb_RampL_Cross_Slope")
+            ),
+            "right_cross_slope_percent": raw.get(
+                "right_cross_slope_percent", raw.get("Curb_RampR_Cross_Slope")
+            ),
             "source": "City of Eugene GIS",
         }
         feature["id"] = properties["ramp_id"]

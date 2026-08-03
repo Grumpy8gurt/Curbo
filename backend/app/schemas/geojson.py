@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+from math import isfinite
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+
+def validate_position(value: list[float]) -> list[float]:
+    """Validate one GeoJSON [longitude, latitude] position."""
+    if len(value) != 2:
+        raise ValueError("Coordinates must contain longitude and latitude")
+    longitude, latitude = value
+    if not isfinite(longitude) or not isfinite(latitude):
+        raise ValueError("Coordinates must be finite")
+    if not -180 <= longitude <= 180:
+        raise ValueError("Longitude must be between -180 and 180")
+    if not -90 <= latitude <= 90:
+        raise ValueError("Latitude must be between -90 and 90")
+    return value
 
 
 class PointGeometry(BaseModel):
@@ -13,9 +28,7 @@ class PointGeometry(BaseModel):
     @field_validator("coordinates")
     @classmethod
     def validate_coordinates(cls, value: list[float]) -> list[float]:
-        if len(value) != 2:
-            raise ValueError("Point coordinates must contain longitude and latitude")
-        return value
+        return validate_position(value)
 
 
 class LineStringGeometry(BaseModel):
@@ -28,8 +41,8 @@ class LineStringGeometry(BaseModel):
     def validate_coordinates(cls, value: list[list[float]]) -> list[list[float]]:
         if len(value) < 2:
             raise ValueError("LineString coordinates must contain at least two positions")
-        if any(len(pair) != 2 for pair in value):
-            raise ValueError("Each LineString coordinate must contain longitude and latitude")
+        for position in value:
+            validate_position(position)
         return value
 
 

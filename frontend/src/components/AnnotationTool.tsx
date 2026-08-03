@@ -138,6 +138,7 @@ export function AnnotationTool({
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Describe what is present, missing, or likely to affect a bike lane."
+          maxLength={2000}
           required
         />
       </label>

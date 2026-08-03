@@ -1,9 +1,14 @@
 import { fetchJsonWithFallback } from "./client";
-import { addFallbackAnnotation, getFallbackAnnotations } from "./fallbackData";
+import {
+  addFallbackAnnotation,
+  getFallbackAnnotations,
+  updateFallbackAnnotation
+} from "./fallbackData";
 import type {
   AnnotationDraft,
   AnnotationFeature,
-  AnnotationFeatureCollection
+  AnnotationFeatureCollection,
+  AnnotationStatus
 } from "../types/annotations";
 
 export async function getAnnotations(): Promise<AnnotationFeatureCollection> {
@@ -29,4 +34,21 @@ export async function createAnnotation(
       source: "frontend"
     })
   });
+}
+
+export async function updateAnnotationStatus(
+  annotationId: string,
+  status: AnnotationStatus
+): Promise<AnnotationFeature> {
+  return fetchJsonWithFallback(
+    `/api/annotations/${encodeURIComponent(annotationId)}`,
+    () => updateFallbackAnnotation(annotationId, status),
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ status })
+    }
+  );
 }

@@ -11,7 +11,8 @@
 import type {
   AnnotationDraft,
   AnnotationFeature,
-  AnnotationFeatureCollection
+  AnnotationFeatureCollection,
+  AnnotationStatus
 } from "../types/annotations";
 import type { CorridorSummary } from "../types/corridors";
 import type { Position } from "../types/geojson";
@@ -267,6 +268,30 @@ export function addFallbackAnnotation(draft: AnnotationDraft): AnnotationFeature
     features: [...annotations.features, feature]
   };
   return feature;
+}
+
+export function updateFallbackAnnotation(
+  annotationId: string,
+  status: AnnotationStatus
+): AnnotationFeature {
+  const feature = annotations.features.find(
+    (candidate) => candidate.properties.annotation_id === annotationId
+  );
+  if (!feature) {
+    throw new Error(`Fallback annotation '${annotationId}' was not found`);
+  }
+
+  const updated = {
+    ...feature,
+    properties: { ...feature.properties, status }
+  };
+  annotations = {
+    ...annotations,
+    features: annotations.features.map((candidate) =>
+      candidate.properties.annotation_id === annotationId ? updated : candidate
+    )
+  };
+  return updated;
 }
 
 export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
