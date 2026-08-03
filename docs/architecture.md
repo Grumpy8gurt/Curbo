@@ -4,9 +4,10 @@
 
 Sprint 4 keeps the existing React, FastAPI, and atomic JSON persistence
 boundaries. It completes the frontend path to the existing annotation PATCH
-endpoint and extends Eugene sidewalk-ramp normalization so published
-measurements reach the inspection popup. No new service or database
-responsibility was introduced.
+endpoint, makes corridor evidence status-aware, extends Eugene sidewalk-ramp
+normalization so published measurements reach screening-only inspection
+prompts, and replaces raw-dictionary reports with readable HTML. No new service
+or database responsibility was introduced.
 
 ## Sprint 3 Evolution
 
@@ -32,14 +33,27 @@ POST /api/annotations
 PATCH /api/annotations/{annotation_id}
   -> AppStore status update
   -> backend/data/annotations.json
+  -> re-analyze selected corridor
+  -> invalidate immutable report link
+
+POST /api/corridors/analyze
+  -> cached infrastructure counts
+  -> nearby annotation history
+  -> active concerns excluding rejected notes
+  -> explainable review attention + limitation
+
+POST /api/reports/corridor
+  -> fresh corridor analysis
+  -> escaped labeled HTML metrics, signals, notes, and limitations
 
 Eugene sidewalk-ramp dimensions
   -> EugeneDataService normalization
   -> curb-ramp Feature properties
-  -> selected-feature popup
+  -> field-review reference helper
+  -> selected-feature popup with screening disclaimer
 ```
 
-PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the Sprint 3 runtime does not require a database or import the Eugene cache into PostGIS.
+PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the current prototype does not require a database or import the Eugene cache into PostGIS.
 
 ## Frontend Responsibilities
 
@@ -48,16 +62,25 @@ PostgreSQL/PostGIS remains available through the optional Docker `database` prof
 - Show feature counts and a clear unavailable state for empty layers.
 - Use backend APIs by default and compact local fallbacks only when the API cannot be reached; surface HTTP errors in the UI.
 - Support point and line annotation creation, persistent status review, and corridor selection without ML-oriented UI.
-- Display curb-ramp width, grade, and cross-slope values with source units when available.
+- Display aggregate and left/right curb-ramp width, grade, and cross-slope
+  values with source units when available; omit nonpositive width sentinels.
+- Compare published dimensions with documented field-review references without
+  presenting a compliance result.
+- Re-analyze the selected corridor after annotation mutations, discard
+  out-of-order results, invalidate stale report links, and announce outcomes.
+- Keep API-connected and offline fallback review behavior synchronized.
 
 ## Backend Responsibilities
 
 - Serve stable, validated GeoJSON FeatureCollections under `/api`.
 - Keep `/api/layers/curb-ramps` as an alias for `/api/layers/sidewalk-ramps`.
 - Normalize source-specific Eugene fields into frontend-facing properties.
-- Filter layers by optional bounding box and calculate lightweight corridor metrics.
+- Filter layers by optional bounding box and calculate lightweight,
+  status-aware corridor metrics while retaining rejected-note history.
 - Persist annotation creation and status updates and generate simple HTML corridor reports.
 - Reject explicit GeoJSON positions outside valid longitude/latitude ranges.
+- Return explainable review signals and a data-limitation statement with every
+  corridor response; never claim safety ranking or accessibility compliance.
 
 ## Data Layer Responsibilities
 
@@ -84,3 +107,5 @@ The ML service, image-upload path, detection endpoints, model dependencies, map 
 - Which public GIS service URLs and refresh cadence should be treated as production sources.
 - Whether a hosted basemap and server-side map tiles are needed for larger datasets.
 - How authentication, data provenance, and dataset licensing should be handled before deployment.
+- How an official crash/speed/volume/exposure data pipeline should be governed
+  before any safety or prioritization model is considered.

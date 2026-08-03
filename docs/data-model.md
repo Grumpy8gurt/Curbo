@@ -1,18 +1,36 @@
 # CURBO Data Model
 
 Sprint 4 retains the Sprint 3 GeoJSON and JSON persistence model while carrying
-curb-ramp measurements through normalization and completing annotation status
-updates. PostgreSQL/PostGIS remains planned long-term infrastructure.
+curb-ramp measurements through normalization, completing annotation status
+updates, and deriving status-aware corridor evidence without adding a new
+database. PostgreSQL/PostGIS remains planned long-term infrastructure.
 
 ## Sprint 3 Runtime Data
 
 - `data/eugene/roads.geojson` maps source identifiers and names to `road_id`, `name`, and `classification`.
-- `data/eugene/sidewalk_ramps.geojson` maps the City ramp inventory to `ramp_id`, `status`, `condition`, `configuration`, width values in feet, and grade/cross-slope values in percent. Null source measurements remain null. The backend keeps `/api/layers/curb-ramps` as a compatibility alias.
+- `data/eugene/sidewalk_ramps.geojson` maps the City ramp inventory to
+  `ramp_id`, `status`, `condition`, `configuration`, aggregate/left/right width
+  values in feet, and aggregate/left/right grade and cross-slope values in
+  percent. Null source measurements remain null; nonpositive width sentinels
+  become null without discarding valid zero slopes. The backend keeps
+  `/api/layers/curb-ramps` as a compatibility alias.
 - `data/eugene/hydrants.geojson` maps source identifiers to `hydrant_id`, `owner`, and `flow_class`.
 - `data/eugene/bike_lanes.geojson` maps bicycle facilities to `bike_lane_id`, `name`, `facility_type`, and `status`.
 - User annotations persist as GeoJSON-compatible `Point` or `LineString` records in `backend/data/annotations.json` using atomic replacement writes. Their review status is one of `pending`, `reviewed`, `confirmed`, or `rejected`. They are a reviewer-notes overlay and do not modify or augment the authoritative Eugene infrastructure collections.
 
 The JSON annotation store is intentionally single-user. It provides demonstrable persistence without introducing a database migration into the civic-data integration scope.
+
+Corridor analysis keeps two views of nearby reviewer notes:
+
+- Historical annotations include every status and power
+  `userAnnotationsNearby`.
+- Active annotations exclude only `rejected` notes and power concern counts,
+  planning notes, and review attention. Active `pending` notes additionally
+  power `annotationsNeedingReview`.
+
+This derived corridor state is recalculated from the current layer and
+annotation store for each analysis/report request; it is not persisted as a
+separate score or authoritative finding.
 
 ## Planned PostGIS Model
 

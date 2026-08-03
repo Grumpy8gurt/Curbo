@@ -23,9 +23,11 @@ This document reflects the verified CURBO Sprint 4 integration contract.
 - Response: GeoJSON `FeatureCollection`
 - Available normalized measurements use `width_feet`,
   `left_width_feet`, `right_width_feet`, `grade_percent`,
+  `left_grade_percent`, `right_grade_percent`,
   `cross_slope_percent`, `left_cross_slope_percent`, and
   `right_cross_slope_percent`. Values may be null when the City source does
-  not publish a measurement.
+  not publish a measurement. Nonpositive physical-width sentinels normalize to
+  null; valid 0% slope measurements remain available.
 
 ### `GET /api/layers/curb-ramps`
 
@@ -130,18 +132,32 @@ points or line segments intersecting the box are returned.
   "roadId": "road_20000641",
   "name": "BROADWAY",
   "knownCurbRamps": 2,
-  "possibleMissingCurbCuts": 2,
+  "possibleMissingCurbCuts": 0,
   "hydrantsNearby": 1,
   "bikeLanesNearby": 1,
   "userAnnotationsNearby": 1,
   "busStopsNearby": 0,
-  "parkingConflicts": 0,
+  "parkingConflicts": 1,
+  "bikeLaneGaps": 0,
+  "intersectionSafetyConcerns": 0,
+  "annotationsNeedingReview": 0,
   "bikeLaneFeasibility": "Medium",
+  "reviewPriority": "Low",
+  "reviewSignals": [
+    "1 active parking/loading conflict near the corridor."
+  ],
+  "dataLimitation": "Screening only: CURBO uses cached infrastructure and reviewer observations; it does not include current crash, speed, traffic-volume, exposure, parking, or right-of-way data and does not rank projects or determine compliance.",
   "planningNotes": [
-    "Possible missing curb cuts near the selected corridor should be field-checked."
+    "Parking conflicts should be reviewed before committing to curb changes."
   ]
 }
 ```
+
+`userAnnotationsNearby` is a historical count and includes rejected notes.
+Concern fields and review attention exclude annotations whose status is
+`rejected`. `annotationsNeedingReview` counts active `pending` notes. The
+Low/Medium/High review-attention heuristic is documented in
+`docs/planning-review-rationale.md`; it is not a safety or project score.
 
 ### `POST /api/reports/corridor`
 
@@ -162,7 +178,7 @@ points or line segments intersecting the box are returned.
   "reportId": "rep_001",
   "roadId": "road_20000641",
   "downloadUrl": "/api/reports/rep_001/download",
-  "summary": "BROADWAY corridor report queued successfully. Export includes counts and planning notes."
+  "summary": "BROADWAY corridor report queued successfully. Export includes Eugene layer counts, planning notes, and annotation status."
 }
 ```
 
