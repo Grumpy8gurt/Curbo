@@ -17,10 +17,15 @@ def test_annotations_persist_across_app_restarts(tmp_path):
         response = client.post(
             "/api/annotations",
             json={
-                "annotationType": "other",
-                "description": "Persistence restart check",
-                "latitude": 44.0521,
-                "longitude": -123.0868,
+                "annotationType": "bike lane gap",
+                "description": "Line persistence restart check",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [-123.0868, 44.0521],
+                        [-123.0855, 44.0524],
+                    ],
+                },
             },
         )
         assert response.status_code == 201
@@ -34,7 +39,9 @@ def test_annotations_persist_across_app_restarts(tmp_path):
         for feature in payload["features"]
         if feature["properties"]["annotation_id"] == annotation_id
     )
-    assert persisted["properties"]["description"] == "Persistence restart check"
+    assert persisted["properties"]["description"] == "Line persistence restart check"
+    assert persisted["geometry"]["type"] == "LineString"
+    assert persisted["geometry"]["coordinates"][1] == [-123.0855, 44.0524]
 
 
 def test_invalid_annotation_store_fails_without_overwriting_data(tmp_path):

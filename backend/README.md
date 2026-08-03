@@ -63,6 +63,7 @@ All routes are registered under `/api`.
 ## Data and Fallback Behavior
 
 - Eugene layers load from `../data/eugene` and are normalized by `EugeneDataService`.
+- Sidewalk-ramp normalization preserves published width, grade, and cross-slope measurements.
 - Missing cached layers fall back to `../data/sample` where a matching sample exists.
 - Annotations persist to `ANNOTATION_FILE`; reports are written under `REPORT_DIR`.
 - Corridor analysis uses lightweight bounding-box checks instead of PostGIS buffering.
@@ -77,7 +78,10 @@ All routes are registered under `/api`.
 
 - Layer endpoints return GeoJSON `FeatureCollection` payloads.
 - `GET /api/annotations` returns a GeoJSON `FeatureCollection` because the frontend stores annotations as map features.
-- `POST /api/annotations` accepts the frontend draft shape `{ annotationType, description, latitude, longitude }`.
+- `POST /api/annotations` accepts `{ annotationType, description, geometry }`, where geometry is a GeoJSON `Point` or `LineString`. Latitude/longitude remain a point-only compatibility input.
+- Explicit Point and LineString positions are validated for finite, in-range longitude and latitude.
+- `PATCH /api/annotations/{annotation_id}` persists the selected review status.
+- Reviewer annotations are notes only and do not become authoritative curb-ramp, hydrant, or bike-lane inventory features.
 - `POST /api/corridors/analyze` accepts `{ roadId }` and returns the current `CorridorSummary` shape used by the React app.
 - `POST /api/reports/corridor` accepts `{ corridor_id, format }` or `{ roadId, format }` and returns the current `CorridorReportResult` shape.
 - CORS is enabled for `http://localhost:5173` and common local development origins.

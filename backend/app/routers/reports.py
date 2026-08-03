@@ -18,6 +18,17 @@ def create_corridor_report(
     store: AppStore = Depends(get_store),
     settings=Depends(get_settings_from_request),
 ):
+    """
+    Generate an HTML corridor report and register it in the store.
+
+    The corridor analysis is re-run with a fixed 30 m buffer rather than
+    reading a previously cached result so that the report always reflects the
+    current annotation state.
+
+    The returned downloadUrl points to the GET /{report_id}/download endpoint
+    which serves the file as a FileResponse.  Reports are not persisted across
+    restarts — only the HTML file on disk remains.
+    """
     analysis = analyze_corridor(store, payload.road_id, buffer_meters=30)
     summary_message = (
         f"{analysis.name} corridor report queued successfully. "
@@ -49,6 +60,12 @@ def create_corridor_report(
 
 @router.get("/{report_id}/download")
 def download_report(report_id: str, store: AppStore = Depends(get_store)):
+    """
+    Serve a previously generated HTML report as a file download.
+    Reports are looked up by ID in the in-memory store; the store is seeded on
+    startup so only reports generated in the current process lifetime are
+    available.
+    """
     report = store.get_report(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' was not found")

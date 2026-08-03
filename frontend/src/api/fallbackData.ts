@@ -1,7 +1,18 @@
+/**
+ * fallbackData.ts
+ *
+ * In-memory offline dataset used when the backend is unavailable or when
+ * VITE_USE_MOCK_API=true.  All coordinates are in the Eugene, OR area.
+ *
+ * Note: annotations is module-level mutable state so that addFallbackAnnotation
+ * can persist new annotations across multiple API calls within the same session.
+ * This is intentionally lightweight — the backend provides true persistence.
+ */
 import type {
   AnnotationDraft,
   AnnotationFeature,
-  AnnotationFeatureCollection
+  AnnotationFeatureCollection,
+  AnnotationStatus
 } from "../types/annotations";
 import type { CorridorSummary } from "../types/corridors";
 import type { Position } from "../types/geojson";
@@ -148,6 +159,8 @@ const bikeLanes: BikeLaneFeatureCollection = {
 let annotationCounter = 3;
 let reportCounter = 0;
 
+// Module-level mutable collection — starts with two seed annotations matching
+// the backend defaults so the UI looks consistent whether connected or not.
 let annotations: AnnotationFeatureCollection = {
   type: "FeatureCollection",
   metadata: { status: "local fallback", source: "CURBO in-memory fallback" },
@@ -155,14 +168,18 @@ let annotations: AnnotationFeatureCollection = {
     createAnnotationFeature({
       annotationType: "missing curb cut",
       description: "Northwest corner slope feels absent during field review.",
-      latitude: 44.0519,
-      longitude: -123.0894
+      geometry: {
+        type: "Point",
+        coordinates: [-123.0894, 44.0519]
+      }
     }, "ann_001", "2026-07-05T15:00:00Z"),
     createAnnotationFeature({
       annotationType: "obstruction",
       description: "Temporary sign blocks ramp access near the curb return.",
-      latitude: 44.0493,
-      longitude: -123.0874
+      geometry: {
+        type: "Point",
+        coordinates: [-123.0874, 44.0493]
+      }
     }, "ann_002", "2026-07-05T15:10:00Z")
   ]
 };
@@ -220,10 +237,7 @@ function createAnnotationFeature(
       source: "planner",
       created_at: createdAt
     },
-    geometry: {
-      type: "Point",
-      coordinates: [draft.longitude, draft.latitude]
-    }
+    geometry: draft.geometry
   };
 }
 
@@ -256,7 +270,33 @@ export function addFallbackAnnotation(draft: AnnotationDraft): AnnotationFeature
   return feature;
 }
 
+export function updateFallbackAnnotation(
+  annotationId: string,
+  status: AnnotationStatus
+): AnnotationFeature {
+  const feature = annotations.features.find(
+    (candidate) => candidate.properties.annotation_id === annotationId
+  );
+  if (!feature) {
+    throw new Error(`Fallback annotation '${annotationId}' was not found`);
+  }
+
+  const updated = {
+    ...feature,
+    properties: { ...feature.properties, status }
+  };
+  annotations = {
+    ...annotations,
+    features: annotations.features.map((candidate) =>
+      candidate.properties.annotation_id === annotationId ? updated : candidate
+    )
+  };
+  return updated;
+}
+
 export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
+  // Return a pre-defined summary for known demo roads or a zeroed placeholder
+  // for any other road ID so the UI degrades gracefully.
   return (
     corridorSummaries[roadId] ?? {
       corridorId: `cor_${roadId}`,

@@ -28,3 +28,43 @@ def test_corridor_analysis_accepts_multiline_roads(client):
     )
 
     assert response.status_code == 200
+
+
+def test_reviewer_notes_do_not_become_infrastructure_inventory(client):
+    road = client.app.state.store.roads["features"][0]
+    road_id = road["properties"]["road_id"]
+    first_position = (
+        road["geometry"]["coordinates"][0][0]
+        if road["geometry"]["type"] == "MultiLineString"
+        else road["geometry"]["coordinates"][0]
+    )
+    baseline = client.post("/api/corridors/analyze", json={"roadId": road_id}).json()
+
+    for annotation_type in ("curb cut", "fire hydrant", "proposed bike lane"):
+        geometry = (
+            {
+                "type": "LineString",
+                "coordinates": [
+                    first_position,
+                    [first_position[0] + 0.00001, first_position[1] + 0.00001],
+                ],
+            }
+            if annotation_type == "proposed bike lane"
+            else {"type": "Point", "coordinates": first_position}
+        )
+        response = client.post(
+            "/api/annotations",
+            json={
+                "annotationType": annotation_type,
+                "description": f"Reviewer note for {annotation_type}",
+                "geometry": geometry,
+            },
+        )
+        assert response.status_code == 201
+
+    updated = client.post("/api/corridors/analyze", json={"roadId": road_id}).json()
+
+    assert updated["knownCurbRamps"] == baseline["knownCurbRamps"]
+    assert updated["hydrantsNearby"] == baseline["hydrantsNearby"]
+    assert updated["bikeLanesNearby"] == baseline["bikeLanesNearby"]
+    assert updated["userAnnotationsNearby"] == baseline["userAnnotationsNearby"] + 3

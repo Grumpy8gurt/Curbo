@@ -1,122 +1,61 @@
-# CURBO Sprint 2 Integration Report
-
-> Historical Sprint 2 evidence: counts and mock-mode observations below describe that sprint. Current Sprint 3 verification is recorded in `docs/manual-verification.md`.
+# CURBO Sprint 3 Integration Report
 
 ## Summary
 
-- Repo structure: pass
-- Sample GeoJSON validation: pass
-- Frontend build: pass
-- Backend tests: pass
-- Backend startup command: pass
-- Docker Compose config validation: pass
-- Docker Compose runtime startup: blocked by local Docker daemon not running
+- Repository structure and frontend/backend separation: pass
+- Backend tests: 20 passed
+- Frontend production build: pass
+- Frontend dependency audit: zero reported vulnerabilities
+- GeoJSON validation: 7 files passed
+- Cache-only refresh behavior: pass
+- Docker Compose configuration: pass
+- Browser verification of layers, annotations, corridors, reports, and road labels: pass
+- Docker runtime startup: blocked because the local Docker daemon was unavailable
 
-## Repo Structure
+## Sprint 3 Evolution
 
-Verified required top-level items:
+The current branch was reviewed against the previous prototype branch. Sprint 3 makes the following meaningful changes:
 
-- `README.md`
-- `docker-compose.yml`
-- `.env.example`
-- `docs/architecture.md`
-- `docs/api-contract.md`
-- `docs/data-model.md`
-- `docs/agent-responsibilities.md`
-- `frontend/`
-- `backend/`
-- `data/sample/`
-- `scripts/setup.sh`
+- Renames the active product to CURBO.
+- Removes the ML service, image upload, curb-cut detection routes, model dependencies, detection types, and review panels.
+- Replaces mock-first infrastructure loading with cached City of Eugene GIS data normalized by `EugeneDataService`.
+- Adds roads, sidewalk ramps, fire hydrants, and bicycle-facility API layers, including bounding-box filtering.
+- Expands the road cache to all 13,520 published street segments and renders directional street names with locally cached MapLibre glyphs.
+- Adds JSON-file annotation persistence that survives backend restarts and fails clearly on corrupt storage.
+- Keeps PostgreSQL/PostGIS as optional future scaffolding instead of a runtime requirement.
+- Adds corridor analysis using nearby ramps, hydrants, bicycle facilities, and annotations.
+- Adds downloadable HTML corridor reports and persistent Docker report storage.
+- Adds GeoJSON refresh and validation scripts.
+- Improves frontend API error handling while retaining network-failure fallback data.
+- Adds tests for Eugene data normalization, persistence, coordinate validation, line intersection, and `MultiLineString` behavior.
 
-The main repo shape is coherent and includes runnable frontend and backend directories.
+## Verification Commands
 
-## Frontend
+```bash
+cd backend && pytest
+cd frontend && npm run build
+cd frontend && npm audit
+python scripts/validate_geojson.py
+EUGENE_CACHE_ONLY=true python scripts/fetch_eugene_data.py --layer roads
+docker compose config
+docker compose --profile database config
+```
 
-Checks run:
+## Observed Behavior
 
-- `cd frontend && npm run build`
+- `GET /api/health` returns HTTP 200 with `status: ok`.
+- Infrastructure endpoints return normalized GeoJSON with cache metadata.
+- `GET /api/layers/roads` returns 13,520 uniquely identified street segments.
+- The map displays collision-aware street labels following road geometry.
+- Annotation creation updates the map and persists to the configured JSON file.
+- Corridor selection returns nearby infrastructure counts and planning notes.
+- Report generation exposes a downloadable HTML report.
+- No active ML, image-upload, model-confidence, or detection-review workflow remains.
 
-Result:
+## Remaining Limitations
 
-- Build passes without TypeScript errors.
-- The app still defaults to mock mode, but the live API adapter layer now tolerates the backend's current request and response shapes.
-
-Issues found and fixed:
-
-- Real API adapters did not match backend annotation, corridor, and report payloads.
-- One TypeScript issue used `replaceAll`, which is not available under the current compiler target assumptions.
-- Frontend README instructions were updated to document live backend mode more accurately.
-
-## Backend
-
-Checks run:
-
-- `cd backend && pytest`
-- `cd backend && uvicorn app.main:app --host 127.0.0.1 --port 8000`
-- Lifespan-enabled TestClient smoke checks for health, layers, annotation create, report create, and report download
-
-Result:
-
-- `pytest` passes: 9 tests passed.
-- `uvicorn` startup now succeeds.
-- Health, layer, annotation, corridor, and report flows all responded successfully in smoke checks.
-
-Issues found and fixed:
-
-- Backend `uvicorn` startup originally failed because schema exports had drifted and no longer matched the package import surface.
-- README contract notes were partly stale and were updated.
-
-## Docker
-
-Checks run:
-
-- `docker compose config`
-- `docker compose up -d postgres`
-- `docker compose ps`
-
-Result:
-
-- `docker compose config` passes.
-- Runtime startup could not be completed because the local Docker daemon was not running in this environment.
-
-Notes:
-
-- The compose file includes a verified build context for `backend`.
-- Postgres remains the only required service for the documented MVP compose workflow.
-
-## API Contract Alignment
-
-Frontend and backend alignment after fixes:
-
-- Annotation create/list flows are now compatible with backend feature-shaped responses.
-- Corridor analysis and report adapters now accept the backend's current camelCase responses while remaining tolerant of earlier draft shapes.
-
-## Data Validation
-
-Validated:
-
-- `data/sample/roads.sample.geojson`
-- `data/sample/curb_ramps.sample.geojson`
-- `data/sample/hydrants.sample.geojson`
-
-Results:
-
-- All files are valid JSON.
-- All files are GeoJSON `FeatureCollection` objects with `Feature` entries, `geometry`, and `properties`.
-- Coordinates are plausibly near Eugene, Oregon.
-
-## Remaining Risks
-
-- Docker runtime was not available here, so full compose startup remains unverified until Docker Desktop or the daemon is running locally.
-- Frontend still defaults to mock mode, so developers must set `VITE_USE_MOCK_API=false` to exercise the live backend manually.
-- The frontend production bundle is large because MapLibre ships in the main chunk.
-- Backend tests emit a `fastapi.testclient` deprecation warning tied to the installed `httpx`/Starlette combination.
-- There is still no browser-level end-to-end test covering frontend plus live backend.
-
-## Recommended Next Steps
-
-- Start Docker locally and rerun `docker compose up -d postgres` plus `docker compose ps`.
-- Run the frontend with `VITE_USE_MOCK_API=false` against the live backend and manually verify annotation, corridor analysis, and report download in the browser.
-- Add one end-to-end smoke test that covers the backend and a representative frontend flow.
-- Decide when to switch the frontend default from mock mode to live backend mode.
-- Replace in-memory backend stores with persistent database-backed implementations when the MVP moves past local demo mode.
+- The annotation store is appropriate for a single-user prototype, not concurrent production writes.
+- Roads are a complete dated service snapshot; other Eugene infrastructure layers remain bounded extracts.
+- The MapLibre production bundle triggers a non-blocking large-chunk advisory.
+- Backend tests emit a non-blocking Starlette/httpx deprecation warning.
+- Full Docker runtime startup still requires verification on a machine with a running Docker daemon.

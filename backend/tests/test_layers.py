@@ -4,8 +4,16 @@ def test_roads_layer_returns_feature_collection(client):
     assert response.status_code == 200
     payload = response.json()
     assert payload["type"] == "FeatureCollection"
-    assert len(payload["features"]) >= 1
+    assert len(payload["features"]) >= 13_000
     assert payload["features"][0]["properties"]["road_id"].startswith("road_")
+    road_ids = [feature["properties"]["road_id"] for feature in payload["features"]]
+    assert len(road_ids) == len(set(road_ids))
+    named_features = [
+        feature
+        for feature in payload["features"]
+        if feature["properties"]["name"] != "Unnamed road"
+    ]
+    assert len(named_features) / len(payload["features"]) > 0.99
 
 
 def test_curb_ramps_layer_returns_feature_collection(client):

@@ -1,61 +1,61 @@
-# Sprint 2 Manual Verification
+# Sprint 4 Manual Verification
 
-## Actions Performed
+Sprint 4 verification focused on user input and its effects: annotation
+creation, status review, geometry rejection, persistence, and curb-ramp
+measurement display.
 
-1. Reviewed the repository structure, sample GeoJSON, and Sprint 2 documentation files.
-2. Built the frontend with `cd frontend && npm run build`.
-3. Ran backend tests with `cd backend && pytest`.
-4. Started the backend locally with `uvicorn app.main:app --host 127.0.0.1 --port 8000`.
-5. Performed targeted backend smoke checks for:
-   - `GET /api/health`
-   - `GET /api/layers/roads`
-   - `POST /api/annotations`
-   - `POST /api/reports/corridor`
-   - `GET /api/reports/{report_id}/download`
-6. Loaded the frontend locally and confirmed that the MapLibre canvas rendered after replacing the remote demo basemap dependency with a local style.
-7. Validated Docker Compose syntax with `docker compose config`.
-8. Investigated the previous Docker startup failure and traced it to the backend container missing the sample data directory needed at startup.
+| Test | Expected Result | Observed Result | Status |
+|---|---|---|---|
+| Load the connected application | Cached Eugene layers and persistent annotations load | Browser loaded 13,520 roads, 400 sidewalk ramps, 400 hydrants, 400 bike facilities, and the annotation layer | Pass |
+| Create a curb-cut annotation with manual coordinates | A pending annotation is persisted, added to map state, and selected | Browser displayed “New annotation added to the map,” increased the annotation count, and opened the new pending annotation | Pass |
+| Change the selected annotation to reviewed | PATCH persists the status and the popup updates without a reload | Browser displayed “Annotation status updated to reviewed” and the control changed to `reviewed` | Pass |
+| Reject invalid explicit GeoJSON | Out-of-range point and line coordinates return HTTP 422 | Automated API tests rejected longitude 999 and latitude 999 | Pass |
+| Preserve curb-ramp measurements | Eugene widths and cross slopes survive normalization and render with units | Normalizer and popup tests displayed `4.9 ft` and `1.1 %` values | Pass |
+| Verify after frontend state refactoring | Status changes still update API state and selected-feature state | Component/API tests passed and the production TypeScript build succeeded | Pass |
 
-## Expected Results
+### Sprint 4 Automated Checks
 
-- The frontend should build without TypeScript errors.
-- The backend should start, pass tests, and expose the main MVP routes.
-- The frontend should render a working map view instead of a blank panel.
-- Docker Compose should parse successfully, and the backend container should have access to the sample GeoJSON files it needs at startup.
+- `cd backend && pytest` — 23 passed
+- `cd frontend && npm test` — 3 passed
+- `cd frontend && npm run build` — passed
+- `cd frontend && npm audit` — zero vulnerabilities
+- `python scripts/validate_geojson.py` — 7 valid files
+- `docker compose config` — valid configuration
 
-## Observed Results
+### Sprint 4 Defects Discovered and Resolved
 
-- Frontend build succeeded.
-- Backend tests succeeded.
-- Local backend startup succeeded.
-- Backend smoke checks returned successful responses for the tested MVP routes.
-- The frontend rendered a live MapLibre canvas locally after the basemap fix.
-- Docker Compose configuration parsed successfully.
-- The earlier Docker backend crash was consistent with the backend image not including `data/sample`; the compose and Dockerfile configuration were updated to address that path issue.
+| Defect | Resolution | Verification |
+|---|---|---|
+| The backend status PATCH existed but had no user-facing control. | Add a review-status selector, PATCH client, fallback update, and local state synchronization. | Browser create/review workflow plus frontend component and API tests passed. |
+| Explicit GeoJSON coordinates bypassed longitude/latitude range checks. | Share finite/range validation across Point and every LineString position. | Both invalid explicit geometry cases return HTTP 422. |
+| Eugene curb-ramp measurements were discarded during normalization. | Preserve aggregate and left/right width and slope fields and display available values with units. | Backend normalization and frontend rendering tests passed. |
+| The frontend had no automated test runner. | Add Vitest, jsdom, and Testing Library with focused user-effect tests. | Three frontend tests pass in CI-style run mode. |
+| Annotation descriptions could exceed the backend limit before submission. | Add the matching 2,000-character limit to the textarea. | TypeScript build and component behavior remained valid. |
 
-## Issues Found
+### Remaining Limitations
 
-- The application is still mock-first. Roads, curb ramps, hydrants, annotations, and reports are not yet fully persisted through a production-style database workflow.
-- Docker runtime behavior still needs one more full end-to-end verification on a machine with Docker Desktop or a running Docker daemon after the backend image fix.
-- The frontend production bundle is still fairly large because MapLibre is included in the main bundle.
+- Dimension availability depends on the City of Eugene source; null values are omitted rather than inferred.
+- The JSON annotation store remains a single-user prototype without concurrent-write coordination.
+- Delete and geometry editing are intentionally outside this narrowly scoped capability.
+- Authentication and authorization remain required before production deployment.
 
-## Engineering Conclusion
-
-The Sprint 2 prototype now demonstrates a complete, explainable feature slice: the frontend can load map data, a user can interact with the map, the backend can return GeoJSON and corridor analysis, and reports can be generated and downloaded. The biggest remaining work is not basic wiring anymore; it is scope control, persistent data, and one more end-to-end Docker verification after the image-path fix.
+---
 
 ## Sprint 3 Manual Verification
 
-Sprint 2 results above are retained as historical evidence. Sprint 3 verification targets the Eugene GIS cache, API-first frontend, persistent annotations, and removal of the active ML workflow.
+This verification targets the Eugene GIS cache, API-first frontend, persistent annotations, complete labeled road layer, and removal of the active ML workflow.
 
 | Test | Expected Result | Observed Result | Status |
 |---|---|---|---|
 | App starts locally | Backend and frontend start without an ML service | Backend and frontend started on ports 8000 and 5173 | Pass |
 | Backend health endpoint returns OK | `GET /api/health` returns HTTP 200 and `status: ok` | Health response returned HTTP 200 with `status: ok` | Pass |
-| Eugene roads layer loads | Roads endpoint returns a non-empty FeatureCollection | Cached, normalized Eugene roads returned | Pass |
+| Eugene roads layer loads | Roads endpoint returns the complete cached service snapshot | 13,520 cached, normalized Eugene street segments returned | Pass |
+| Street names render on roads | Named roads display collision-aware labels following their line geometry | MapLibre loaded the cached local glyph range and rendered the road-label symbol layer | Pass |
 | Sidewalk ramps layer loads | Sidewalk-ramp endpoint and curb-ramp alias return points | Both endpoints returned the same non-empty point layer | Pass |
 | Hydrants layer loads | Hydrants endpoint returns a non-empty FeatureCollection | Cached, normalized Eugene hydrants returned | Pass |
 | Bike lanes layer loads or reports status | Bike-lane endpoint returns data or an explicit unavailable status | Cached Eugene bicycle facilities returned | Pass |
 | User can create an annotation | POST creates a feature and writes the JSON store | Annotation appeared through the API and persisted to the configured file | Pass |
+| User can draw a line annotation | POST accepts valid GeoJSON `LineString` reviewer geometry | Line annotation creation and minimum-position validation tests passed | Pass |
 | Annotation appears in frontend | Newly created annotation is added to map state | Annotation marker appeared after form submission | Pass |
 | Corridor summary displays | Selecting a road shows nearby ramps, hydrants, bike data, and annotations | Corridor panel populated from backend analysis | Pass |
 | ML/image detection UI is no longer active | No upload, model confidence, or detection-review controls appear | No active ML or image-detection UI is present | Pass |
@@ -70,7 +70,7 @@ Sprint 2 results above are retained as historical evidence. Sprint 3 verificatio
 - `python scripts/fetch_eugene_data.py` (offline/cache-preservation path)
 - `docker compose config`
 
-The final repository review produced 17 passing backend tests, a successful frontend production build, zero reported npm vulnerabilities, 7 valid GeoJSON files, a successful cache-only refresh check, and valid default and optional-database Compose configurations. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
+The final repository review produced 20 passing backend tests, a successful frontend production build, zero reported npm vulnerabilities, 7 valid GeoJSON files, a successful cache-only refresh check, and valid default and optional-database Compose configurations. The frontend build reports only Vite's existing large-chunk advisory for the MapLibre bundle. This is not a build failure. A Docker runtime check could not connect because Docker Desktop/the local daemon was not running.
 
 ### Sprint 3 Issues Discovered and Resolved
 
@@ -87,10 +87,11 @@ The final repository review produced 17 passing backend tests, a successful fron
 | Bounding-box filtering only matched line vertices and accepted reversed bounds. | Add segment/rectangle intersection and ordered-bound validation. | Crossing-line and reversed-bound tests passed. |
 | Corrupt annotation JSON silently restored seed data. | Fail startup with a clear path-specific error without overwriting the file. | Corruption-preservation and restart-persistence tests passed. |
 | The first manual server commands inherited the wrong shell working directory. | Use explicit `cd backend` and `cd frontend` commands, matching the README. | Both services subsequently started and completed browser verification. |
+| The committed road cache contained only 400 Eugene street segments and the map did not label them. | Refresh all 13,520 published segments, retain unique `OBJECTID` values, normalize directional names, and add a line-following MapLibre label layer with local glyphs. | The API returned 13,520 uniquely identified roads, browser verification loaded the label resource, GeoJSON validation passed, and the frontend build succeeded. |
 
 ### Remaining Limitations
 
 - The JSON annotation store is designed for a single-user prototype and does not provide concurrent-write coordination.
-- Eugene layers are committed extracts; a refresh may produce larger files as the public services change.
+- Eugene data is a dated cache: roads contain the complete July 27, 2026 service snapshot, while the other infrastructure layers remain bounded extracts.
 - PostGIS is optional scaffolding; SQLAlchemy initializes only when `DATABASE_URL` is configured.
 - Full Docker runtime startup still requires a local Docker daemon; Compose configuration itself validates.

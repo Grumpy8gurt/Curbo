@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { createAnnotation, getAnnotations } from "./api/annotations";
+import {
+  createAnnotation,
+  getAnnotations,
+  updateAnnotationStatus
+} from "./api/annotations";
 import {
   getBikeLanes,
   getHydrants,
@@ -17,10 +21,14 @@ import { MapView } from "./components/MapView";
 import { ReportPanel } from "./components/ReportPanel";
 import { Sidebar } from "./components/Sidebar";
 import type {
+  AnnotationDrawMode,
   AnnotationDraft,
-  AnnotationFeatureCollection
+  AnnotationFeatureCollection,
+  AnnotationGeometry,
+  AnnotationStatus
 } from "./types/annotations";
 import type { CorridorSummary } from "./types/corridors";
+import type { Position } from "./types/geojson";
 import type { RoadFeatureCollection } from "./types/layers";
 import {
   DEFAULT_LAYER_VISIBILITY,
@@ -31,8 +39,13 @@ import {
   type LayerVisibility
 } from "./types/layers";
 import type { CorridorReportResult } from "./types/reports";
-import type { SelectedFeatureDetails } from "./utils/mapHelpers";
+import {
+  getFeatureCenter,
+  type SelectedFeatureDetails
+} from "./utils/mapHelpers";
 
+// Stable empty collections used as initial state so MapView never receives
+// undefined props and can render without a null guard on each layer.
 const EMPTY_ROADS: RoadFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_CURB_RAMPS: CurbRampFeatureCollection = { type: "FeatureCollection", features: [] };
 const EMPTY_HYDRANTS: HydrantFeatureCollection = { type: "FeatureCollection", features: [] };
@@ -43,6 +56,7 @@ const EMPTY_BIKE_LANES: BikeLaneFeatureCollection = {
 };
 
 export default function App() {
+  // --- GIS layer state ---
   const [roads, setRoads] = useState<RoadFeatureCollection>(EMPTY_ROADS);
   const [sidewalkRamps, setSidewalkRamps] =
     useState<CurbRampFeatureCollection>(EMPTY_CURB_RAMPS);
@@ -51,16 +65,27 @@ export default function App() {
     useState<BikeLaneFeatureCollection>(EMPTY_BIKE_LANES);
   const [annotations, setAnnotations] =
     useState<AnnotationFeatureCollection>(EMPTY_ANNOTATIONS);
+
+  // --- UI state ---
   const [visibility, setVisibility] = useState<LayerVisibility>(DEFAULT_LAYER_VISIBILITY);
   const [selectedFeature, setSelectedFeature] = useState<SelectedFeatureDetails | null>(null);
   const [selectedRoadId, setSelectedRoadId] = useState<string | null>(null);
   const [corridorSummary, setCorridorSummary] = useState<CorridorSummary | null>(null);
   const [reportResult, setReportResult] = useState<CorridorReportResult | null>(null);
+  const [drawingMode, setDrawingMode] = useState<AnnotationDrawMode | null>(null);
+  const [drawingCoordinates, setDrawingCoordinates] = useState<Position[]>([]);
+  const [annotationGeometry, setAnnotationGeometry] =
+    useState<AnnotationGeometry | null>(null);
+
+  // --- Loading flags (separate so they don't block the map from rendering) ---
   const [loading, setLoading] = useState(true);
   const [corridorLoading, setCorridorLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [activityMessage, setActivityMessage] = useState("Loading Eugene GIS layers...");
 
+  // Load all five layers in parallel on mount.  Individual layer failures are
+  // caught by fetchJsonWithFallback in the API client, so only a total network
+  // failure (TypeError) reaches this catch block.
   useEffect(() => {
     async function loadData() {
       try {
@@ -94,8 +119,11 @@ export default function App() {
     void loadData();
   }, []);
 
+  // Wrapped in useCallback so MapView's onRoadSelect prop reference is stable
+  // across re-renders and does not retrigger the map interaction effect.
   const handleRoadSelection = useCallback(async (roadId: string) => {
     setSelectedRoadId(roadId || null);
+    // Clear the previous report when the road changes so stale data is not shown.
     setReportResult(null);
 
     if (!roadId) {
@@ -118,6 +146,8 @@ export default function App() {
     }
   }, []);
 
+  // Adapter so MapView can call onRoadSelect with a plain string instead of
+  // returning a Promise, keeping the component signature free of async concerns.
   const handleMapRoadSelection = useCallback(
     (roadId: string) => {
       void handleRoadSelection(roadId);
@@ -132,12 +162,74 @@ export default function App() {
     }));
   }
 
+  const handleStartDrawing = useCallback((mode: AnnotationDrawMode) => {
+    setDrawingMode(mode);
+    setDrawingCoordinates([]);
+    setAnnotationGeometry(null);
+    setSelectedFeature(null);
+    setActivityMessage(
+      mode === "point"
+        ? "Click the map to place the reviewer note."
+        : "Click two or more map locations to trace the reviewer note."
+    );
+  }, []);
+
+  const handleDrawClick = useCallback((position: Position) => {
+    setDrawingCoordinates((current) => {
+      if (drawingMode === "point") {
+        setAnnotationGeometry({ type: "Point", coordinates: position });
+        setDrawingMode(null);
+        setActivityMessage("Point placed. Add a description and save the annotation.");
+        return [position];
+      }
+
+      if (drawingMode === "line") {
+        const next = [...current, position];
+        if (next.length >= 2) {
+          setAnnotationGeometry({ type: "LineString", coordinates: next });
+        }
+        return next;
+      }
+
+      return current;
+    });
+  }, [drawingMode]);
+
+  const handleFinishDrawing = useCallback(() => {
+    if (drawingCoordinates.length < 2) {
+      setActivityMessage("Add at least two map points before finishing the line.");
+      return;
+    }
+    setAnnotationGeometry({
+      type: "LineString",
+      coordinates: drawingCoordinates
+    });
+    setDrawingMode(null);
+    setActivityMessage("Line completed. Add a description and save the annotation.");
+  }, [drawingCoordinates]);
+
+  const handleCancelDrawing = useCallback(() => {
+    setDrawingMode(null);
+    setDrawingCoordinates([]);
+    setAnnotationGeometry(null);
+    setActivityMessage("Annotation placement cancelled.");
+  }, []);
+
+  const handleUseManualPoint = useCallback((position: Position) => {
+    setDrawingMode(null);
+    setDrawingCoordinates([position]);
+    setAnnotationGeometry({ type: "Point", coordinates: position });
+    setActivityMessage("Coordinate point set. Add a description and save the annotation.");
+  }, []);
+
   async function handleCreateAnnotation(annotation: AnnotationDraft) {
     const nextFeature = await createAnnotation(annotation);
+    // Append the new feature to the existing collection without a full refetch.
     setAnnotations((current) => ({
       ...current,
       features: [...current.features, nextFeature]
     }));
+    // Immediately select the new annotation so it appears in the popup.
     setSelectedFeature({
       id: nextFeature.properties.annotation_id,
       layerId: "annotations",
@@ -146,9 +238,35 @@ export default function App() {
       source: nextFeature.properties.source,
       status: nextFeature.properties.status,
       notes: nextFeature.properties.description,
-      coordinates: nextFeature.geometry.coordinates
+      geometryLabel:
+        nextFeature.geometry.type === "LineString"
+          ? `Line note (${nextFeature.geometry.coordinates.length} vertices)`
+          : "Point note",
+      coordinates: getFeatureCenter(nextFeature.geometry)
     });
+    setDrawingMode(null);
+    setDrawingCoordinates([]);
+    setAnnotationGeometry(null);
     setActivityMessage("New annotation added to the map.");
+  }
+
+  async function handleAnnotationStatusChange(
+    annotationId: string,
+    status: AnnotationStatus
+  ) {
+    const updated = await updateAnnotationStatus(annotationId, status);
+    setAnnotations((current) => ({
+      ...current,
+      features: current.features.map((feature) =>
+        feature.properties.annotation_id === annotationId ? updated : feature
+      )
+    }));
+    setSelectedFeature((current) =>
+      current?.layerId === "annotations" && current.id === annotationId
+        ? { ...current, status: updated.properties.status }
+        : current
+    );
+    setActivityMessage(`Annotation status updated to ${status}.`);
   }
 
   async function handleGenerateReport() {
@@ -177,6 +295,8 @@ export default function App() {
   return (
     <div className="page-shell">
       <Header />
+      {/* Activity banner doubles as a loading indicator (animated dot) and
+          a status log showing the most recent operation outcome. */}
       <div className="activity-banner">
         <span className={`status-dot ${loading ? "is-loading" : ""}`} />
         {activityMessage}
@@ -222,9 +342,18 @@ export default function App() {
 
             <Sidebar
               title="Annotation tool"
-              description="Create a simple missing curb-cut or field issue annotation."
+              description="Place point or line notes for bike-lane planning review."
             >
-              <AnnotationTool onCreate={handleCreateAnnotation} />
+              <AnnotationTool
+                geometry={annotationGeometry}
+                drawingMode={drawingMode}
+                drawingPointCount={drawingCoordinates.length}
+                onStartDrawing={handleStartDrawing}
+                onFinishDrawing={handleFinishDrawing}
+                onCancelDrawing={handleCancelDrawing}
+                onUseManualPoint={handleUseManualPoint}
+                onCreate={handleCreateAnnotation}
+              />
             </Sidebar>
           </>
         }
@@ -238,8 +367,12 @@ export default function App() {
             visibility={visibility}
             selectedFeature={selectedFeature}
             selectedRoadId={selectedRoadId}
+            drawingMode={drawingMode}
+            drawingCoordinates={drawingCoordinates}
             onFeatureSelect={setSelectedFeature}
             onRoadSelect={handleMapRoadSelection}
+            onDrawClick={handleDrawClick}
+            onAnnotationStatusChange={handleAnnotationStatusChange}
           />
         }
         aside={

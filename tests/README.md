@@ -1,8 +1,8 @@
 # Tests
 
-This folder retains cross-service verification evidence from earlier sprints.
+This folder contains Sprint 3 cross-service verification evidence.
 
-- `integration-report.md` records the Sprint 2 integration pass and is preserved as project history.
+- `integration-report.md` summarizes the Sprint 3 integration pass.
 - Current backend API, layer, corridor, report, and persistence tests live in `backend/tests/`.
 - Current data validation is run with `python scripts/validate_geojson.py`.
 

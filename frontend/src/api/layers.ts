@@ -12,6 +12,9 @@ import type {
   RoadFeatureCollection
 } from "../types/layers";
 
+// Each getter passes a pre-computed fallback value (not a factory function)
+// because the fallback collections are module-level constants and are safe to
+// share directly.  fetchJsonWithFallback deep-clones them before returning.
 export async function getRoads(): Promise<RoadFeatureCollection> {
   return fetchJsonWithFallback("/api/layers/roads", getFallbackRoads());
 }

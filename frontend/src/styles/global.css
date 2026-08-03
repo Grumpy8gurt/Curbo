@@ -149,6 +149,49 @@ button {
   min-height: 76vh;
 }
 
+.annotation-legend {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 24px rgba(17, 34, 56, 0.12);
+  font-size: 0.78rem;
+}
+
+.annotation-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--navy);
+  border-radius: 999px;
+  background: #f0b429;
+}
+
+.legend-swatch.is-access {
+  background: var(--teal);
+}
+
+.legend-swatch.is-hydrant {
+  background: #d95d39;
+}
+
+.legend-swatch.is-bike {
+  background: #2274a5;
+}
+
+.legend-swatch.is-conflict {
+  background: #d97706;
+}
+
 .feature-popup {
   position: absolute;
   left: 16px;
@@ -167,6 +210,23 @@ button {
 
 .feature-popup p {
   margin: 6px 0 0;
+}
+
+.feature-status-control {
+  margin-top: 10px;
+}
+
+.feature-status-control .select-input {
+  margin-top: 4px;
+  background: #ffffff;
+  color: var(--navy);
+}
+
+.measurement-list {
+  display: grid;
+  gap: 3px;
+  margin: 5px 0 0;
+  padding-left: 18px;
 }
 
 .feature-tag,
@@ -269,6 +329,61 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.placement-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(23, 50, 77, 0.14);
+  border-radius: 14px;
+}
+
+.placement-fieldset legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.placement-buttons {
+  margin-top: 0;
+}
+
+.placement-buttons button {
+  flex: 1;
+}
+
+.drawing-callout {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(240, 180, 41, 0.18);
+  color: #6f4900;
+}
+
+.drawing-callout p,
+.placement-fieldset .success-callout,
+.placement-fieldset .helper-text {
+  margin: 0;
+}
+
+.coordinate-fallback {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(23, 50, 77, 0.04);
+}
+
+.coordinate-fallback summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.coordinate-fallback .form-row {
+  margin-top: 12px;
+}
+
+.coordinate-button {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .primary-button,
