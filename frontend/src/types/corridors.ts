@@ -8,8 +8,14 @@ export interface CorridorSummary {
   hydrantsNearby: number;
   bikeLanesNearby: number;
   userAnnotationsNearby: number;
-  busStopsNearby: number;         // Always 0 in Sprint 3 — no bus stop data source yet.
-  parkingConflicts: number;       // Always 0 in Sprint 3 — reserved for future data.
+  busStopsNearby: number; // Always 0 until CURBO has a documented transit-stop source.
+  parkingConflicts: number;
+  bikeLaneGaps: number;
+  intersectionSafetyConcerns: number;
+  annotationsNeedingReview: number;
   bikeLaneFeasibility: "Low" | "Medium" | "High";
+  reviewPriority: "Low" | "Medium" | "High";
+  reviewSignals: string[];
+  dataLimitation: string;
   planningNotes: string[];
 }

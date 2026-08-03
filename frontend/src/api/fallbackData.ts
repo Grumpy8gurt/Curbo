@@ -159,6 +159,9 @@ const bikeLanes: BikeLaneFeatureCollection = {
 let annotationCounter = 3;
 let reportCounter = 0;
 
+const DATA_LIMITATION =
+  "Screening only: CURBO uses cached infrastructure and reviewer observations; it does not include current crash, speed, traffic-volume, exposure, parking, or right-of-way data and does not rank projects or determine compliance.";
+
 // Module-level mutable collection — starts with two seed annotations matching
 // the backend defaults so the UI looks consistent whether connected or not.
 let annotations: AnnotationFeatureCollection = {
@@ -194,9 +197,15 @@ const corridorSummaries: Record<string, CorridorSummary> = {
     hydrantsNearby: 4,
     bikeLanesNearby: 1,
     userAnnotationsNearby: 1,
-    busStopsNearby: 1,
-    parkingConflicts: 7,
+    busStopsNearby: 0,
+    parkingConflicts: 0,
+    bikeLaneGaps: 0,
+    intersectionSafetyConcerns: 0,
+    annotationsNeedingReview: 1,
     bikeLaneFeasibility: "Medium",
+    reviewPriority: "Low",
+    reviewSignals: [],
+    dataLimitation: DATA_LIMITATION,
     planningNotes: [
       "Downtown pedestrian demand is high near the mid-block crossings.",
       "A loading zone may conflict with future ramp reconstruction."
@@ -211,9 +220,15 @@ const corridorSummaries: Record<string, CorridorSummary> = {
     hydrantsNearby: 2,
     bikeLanesNearby: 1,
     userAnnotationsNearby: 1,
-    busStopsNearby: 1,
-    parkingConflicts: 3,
+    busStopsNearby: 0,
+    parkingConflicts: 0,
+    bikeLaneGaps: 0,
+    intersectionSafetyConcerns: 0,
+    annotationsNeedingReview: 1,
     bikeLaneFeasibility: "High",
+    reviewPriority: "Low",
+    reviewSignals: [],
+    dataLimitation: DATA_LIMITATION,
     planningNotes: [
       "Existing cross section leaves room for ADA improvements.",
       "Transit stop spacing suggests one corner deserves priority review."
@@ -295,10 +310,9 @@ export function updateFallbackAnnotation(
 }
 
 export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
-  // Return a pre-defined summary for known demo roads or a zeroed placeholder
-  // for any other road ID so the UI degrades gracefully.
-  return (
-    corridorSummaries[roadId] ?? {
+  // Recalculate annotation-derived values so create/review actions have the
+  // same visible effect in offline mode as they do through FastAPI.
+  const base = corridorSummaries[roadId] ?? {
       corridorId: `cor_${roadId}`,
       roadId,
       name: "Unknown corridor",
@@ -309,10 +323,139 @@ export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
       userAnnotationsNearby: 0,
       busStopsNearby: 0,
       parkingConflicts: 0,
+      bikeLaneGaps: 0,
+      intersectionSafetyConcerns: 0,
+      annotationsNeedingReview: 0,
       bikeLaneFeasibility: "Low",
+      reviewPriority: "Low" as const,
+      reviewSignals: [],
+      dataLimitation: DATA_LIMITATION,
       planningNotes: ["No fallback corridor summary is defined for this road yet."]
-    }
+    };
+  const nearbyAnnotations = getNearbyAnnotations(roadId);
+  const activeAnnotations = nearbyAnnotations.filter(
+    (feature) => feature.properties.status !== "rejected"
   );
+  const countType = (annotationType: string) =>
+    activeAnnotations.filter(
+      (feature) => feature.properties.annotation_type === annotationType
+    ).length;
+  const possibleMissingCurbCuts = countType("missing curb cut");
+  const bikeLaneGaps = countType("bike lane gap");
+  const intersectionSafetyConcerns = countType("intersection safety");
+  const parkingConflicts = countType("parking/loading conflict");
+  const annotationsNeedingReview = activeAnnotations.filter(
+    (feature) => feature.properties.status === "pending"
+  ).length;
+  const feasibilityScore =
+    4 +
+    Math.min(base.bikeLanesNearby, 2) -
+    possibleMissingCurbCuts -
+    Math.min(base.hydrantsNearby, 2);
+  const bikeLaneFeasibility =
+    feasibilityScore >= 3 ? "High" : feasibilityScore >= 1 ? "Medium" : "Low";
+  const { reviewPriority, reviewSignals } = buildReviewAssessment({
+    bikeLaneGaps,
+    intersectionSafetyConcerns,
+    parkingConflicts,
+    possibleMissingCurbCuts,
+    bikeLanesNearby: base.bikeLanesNearby,
+    annotationsNeedingReview
+  });
+
+  return {
+    ...base,
+    possibleMissingCurbCuts,
+    userAnnotationsNearby: nearbyAnnotations.length,
+    parkingConflicts,
+    bikeLaneGaps,
+    intersectionSafetyConcerns,
+    annotationsNeedingReview,
+    bikeLaneFeasibility,
+    reviewPriority,
+    reviewSignals,
+    dataLimitation: DATA_LIMITATION
+  };
+}
+
+function getNearbyAnnotations(roadId: string): AnnotationFeature[] {
+  const road = roads.features.find((feature) => feature.properties.road_id === roadId);
+  if (!road) {
+    return [];
+  }
+  const roadPositions = road.geometry.type === "MultiLineString"
+    ? road.geometry.coordinates.flat()
+    : road.geometry.coordinates;
+  const longitudes = roadPositions.map((position) => position[0]);
+  const latitudes = roadPositions.map((position) => position[1]);
+  const longitudeBuffer = 0.0006;
+  const latitudeBuffer = 0.00045;
+  const bounds = {
+    minLongitude: Math.min(...longitudes) - longitudeBuffer,
+    maxLongitude: Math.max(...longitudes) + longitudeBuffer,
+    minLatitude: Math.min(...latitudes) - latitudeBuffer,
+    maxLatitude: Math.max(...latitudes) + latitudeBuffer
+  };
+
+  const isInsideBounds = (coordinates: Position) =>
+    coordinates[0] >= bounds.minLongitude &&
+    coordinates[0] <= bounds.maxLongitude &&
+    coordinates[1] >= bounds.minLatitude &&
+    coordinates[1] <= bounds.maxLatitude;
+
+  return annotations.features.filter((feature) => {
+    return feature.geometry.type === "Point"
+      ? isInsideBounds(feature.geometry.coordinates)
+      : feature.geometry.coordinates.some(isInsideBounds);
+  });
+}
+
+function buildReviewAssessment(values: {
+  bikeLaneGaps: number;
+  intersectionSafetyConcerns: number;
+  parkingConflicts: number;
+  possibleMissingCurbCuts: number;
+  bikeLanesNearby: number;
+  annotationsNeedingReview: number;
+}): Pick<CorridorSummary, "reviewPriority" | "reviewSignals"> {
+  let score = 0;
+  const reviewSignals: string[] = [];
+  const concerns: Array<[number, number, string]> = [
+    [values.bikeLaneGaps, 2, "bike-lane gap observation"],
+    [values.intersectionSafetyConcerns, 2, "intersection-safety observation"],
+    [values.parkingConflicts, 1, "parking/loading conflict"],
+    [values.possibleMissingCurbCuts, 1, "missing-curb-cut observation"]
+  ];
+  concerns.forEach(([count, weight, label]) => {
+    if (count) {
+      score += Math.min(count, 2) * weight;
+      reviewSignals.push(
+        `${count} active ${label}${count === 1 ? "" : "s"} near the corridor.`
+      );
+    }
+  });
+  if (values.bikeLanesNearby === 0) {
+    score += 1;
+    reviewSignals.push(
+      "No intersecting mapped bicycle facility was found in the cached layer."
+    );
+  }
+  if (values.annotationsNeedingReview) {
+    reviewSignals.push(
+      `${values.annotationsNeedingReview} nearby annotation${
+        values.annotationsNeedingReview === 1 ? "" : "s"
+      } still ${values.annotationsNeedingReview === 1 ? "needs" : "need"} review.`
+    );
+  }
+  if (!reviewSignals.length) {
+    reviewSignals.push(
+      "No active corridor concerns were found in nearby reviewer annotations."
+    );
+  }
+  return {
+    reviewPriority: score >= 4 ? "High" : score >= 2 ? "Medium" : "Low",
+    reviewSignals
+  };
 }
 
 export function createFallbackReport(corridorId: string, roadName: string): CorridorReportResult {

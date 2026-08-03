@@ -20,7 +20,9 @@ export function LayerPanel({
         // features (e.g. bike_lanes with no cache file).
         <label
           key={layer.id}
-          className={`layer-item ${layerCounts[layer.id] === 0 ? "is-disabled" : ""}`}
+          className={`layer-item ${layerCounts[layer.id] === 0 ? "is-disabled" : ""} ${
+            visibility[layer.id] ? "is-visible" : "is-hidden"
+          }`}
         >
           <span>
             <input
@@ -35,7 +37,9 @@ export function LayerPanel({
           <small>
             {layerCounts[layer.id] === 0
               ? "unavailable"
-              : `${layerCounts[layer.id]} · ${layerStatuses[layer.id] ?? "loaded"}`}
+              : `${visibility[layer.id] ? "On" : "Off"} · ${layerCounts[layer.id]} · ${
+                  layerStatuses[layer.id] ?? "loaded"
+                }`}
           </small>
         </label>
       ))}

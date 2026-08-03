@@ -40,7 +40,13 @@ describe("FeaturePopup", () => {
       subtitle: "Sidewalk ramp",
       source: "City of Eugene GIS",
       status: "existing",
-      measurements: ["Left width: 4.9 ft", "Left cross slope: 1.1 %"],
+      measurements: ["Left width: 3.5 ft", "Left grade: 8.6 %"],
+      fieldReviewPrompts: [
+        "Left width 3.5 ft is below the 4 ft field-review reference.",
+        "Left grade 8.6% exceeds the 8.33% field-review reference."
+      ],
+      screeningDisclaimer:
+        "Screening only: published measurements are field-review prompts, not an accessibility-compliance finding.",
       coordinates: [-123.08, 44.05]
     };
 
@@ -52,7 +58,9 @@ describe("FeaturePopup", () => {
     );
 
     expect(screen.getByText("Dimensions")).toBeInTheDocument();
-    expect(screen.getByText("Left width: 4.9 ft")).toBeInTheDocument();
-    expect(screen.getByText("Left cross slope: 1.1 %")).toBeInTheDocument();
+    expect(screen.getByText("Left width: 3.5 ft")).toBeInTheDocument();
+    expect(screen.getByText("Left grade: 8.6 %")).toBeInTheDocument();
+    expect(screen.getByText("Field-review prompts")).toBeInTheDocument();
+    expect(screen.getByText(/not an accessibility-compliance finding/)).toBeInTheDocument();
   });
 });

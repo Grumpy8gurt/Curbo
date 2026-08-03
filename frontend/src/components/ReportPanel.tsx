@@ -23,9 +23,17 @@ export function ReportPanel({
     <div className="field-stack">
       <article className="summary-card">
         <div className="card-topline">
-          <strong>{summary.name}</strong>
-          <span className="rating-pill">{summary.bikeLaneFeasibility} feasibility</span>
+          <div>
+            <span className="card-kicker">Selected corridor</span>
+            <strong>{summary.name}</strong>
+          </div>
+          <span className={`rating-pill priority-${summary.reviewPriority.toLowerCase()}`}>
+            {summary.reviewPriority} review attention
+          </span>
         </div>
+        <p className="feasibility-line">
+          Preliminary bicycle feasibility: <strong>{summary.bikeLaneFeasibility}</strong>
+        </p>
         <div className="metrics-grid">
           <div>
             <span>Sidewalk ramps</span>
@@ -40,19 +48,45 @@ export function ReportPanel({
             <strong>{summary.hydrantsNearby}</strong>
           </div>
           <div>
-            <span>Bike facilities</span>
+            <span>Mapped bike facilities</span>
             <strong>{summary.bikeLanesNearby}</strong>
           </div>
           <div>
-            <span>User annotations</span>
+            <span>Bike-network gaps</span>
+            <strong>{summary.bikeLaneGaps}</strong>
+          </div>
+          <div>
+            <span>Intersection safety</span>
+            <strong>{summary.intersectionSafetyConcerns}</strong>
+          </div>
+          <div>
+            <span>Parking/loading</span>
+            <strong>{summary.parkingConflicts}</strong>
+          </div>
+          <div>
+            <span>Needs review</span>
+            <strong>{summary.annotationsNeedingReview}</strong>
+          </div>
+          <div>
+            <span>All annotations</span>
             <strong>{summary.userAnnotationsNearby}</strong>
           </div>
         </div>
-        <div className="notes-list">
+        <section className="summary-section" aria-labelledby="review-signals-heading">
+          <h3 id="review-signals-heading">Review signals</h3>
+          <ul className="review-signal-list">
+            {summary.reviewSignals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
+          </ul>
+        </section>
+        <section className="summary-section notes-list" aria-labelledby="planning-notes-heading">
+          <h3 id="planning-notes-heading">Planning notes</h3>
           {summary.planningNotes.map((note) => (
             <p key={note}>{note}</p>
           ))}
-        </div>
+        </section>
+        <p className="data-limitation">{summary.dataLimitation}</p>
       </article>
 
       <button className="primary-button" type="button" onClick={onGenerate} disabled={generating}>

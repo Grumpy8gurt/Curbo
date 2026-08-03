@@ -25,7 +25,7 @@ The API will be available at `http://localhost:8000`.
 
 ## Environment Variables
 
-The backend reads configuration from the repository-root `.env` file and process environment. The Sprint 3 runtime does not require a database.
+The backend reads configuration from the repository-root `.env` file and process environment. The current prototype does not require a database.
 
 ```env
 POSTGRES_DB=curbo
