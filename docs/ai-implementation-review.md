@@ -7,7 +7,7 @@ annotation PATCH target, and Eugene curb-ramp measurement normalization. It
 also extended coverage for restart-persisted review status, active versus
 rejected corridor concerns, readable report output, width sentinels, side-specific
 grades, dimensional reference boundaries, dynamic offline behavior, the report
-panel, and the corridor API contract.
+panel, the corridor API contract, and product-facing interface language.
 
 ## AI-Assisted Test Review
 
@@ -17,7 +17,7 @@ whole-application frontend test was rejected because MapLibre/WebGL setup would
 make the test brittle while adding little coverage of the changed workflow.
 It was replaced with component and API tests that directly verify the user's
 status selection and its network effect. The final suite has 27 backend tests
-and 9 frontend tests across 6 frontend files.
+and 13 frontend tests across 7 frontend files.
 
 ## Refactoring Decision
 
@@ -33,14 +33,17 @@ same sprint; those require new product rules, sources, and governance.
 ## Verification of AI-Generated Work
 
 The work was not accepted from source review alone. The complete verifier
-passed 27 backend tests, 9 frontend tests, the production build, a zero-vulnerability
+passed 27 backend tests, 13 frontend tests, the production build, a zero-vulnerability
 dependency audit, seven GeoJSON validations, and Docker Compose configuration.
 A connected browser session loaded the full cached layers, created and rejected
 a bike-gap note, created and confirmed a parking conflict, regenerated the
 selected-corridor evidence, created and downloaded an HTML report, and proved
 both review states survived a fresh backend process. A 390×844 visual pass
 found and corrected a mobile legend-positioning defect; a follow-up pass showed
-no horizontal overflow and kept the legend inside the map.
+no horizontal overflow and kept the legend inside the map. A final connected
+browser review also confirmed that release-stage and implementation terminology
+is absent from the visible application while remaining documented in the
+engineering evidence.
 
 ---
 

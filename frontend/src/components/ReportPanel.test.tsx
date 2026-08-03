@@ -41,4 +41,25 @@ describe("ReportPanel", () => {
     expect(screen.getByText("1 active bike-lane gap observation near the corridor.")).toBeInTheDocument();
     expect(screen.getByText(/current crash, speed, and volume/)).toBeInTheDocument();
   });
+
+  it("describes an unavailable download without implementation instructions", () => {
+    render(
+      <ReportPanel
+        summary={summary}
+        reportResult={{
+          reportId: "rep_001",
+          roadId: "road_1",
+          downloadUrl: "",
+          summary: "Test Avenue report preview is ready."
+        }}
+        generating={false}
+        onGenerate={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText("Report download is unavailable in this session.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/backend|api/i)).not.toBeInTheDocument();
+  });
 });

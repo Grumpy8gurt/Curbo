@@ -38,6 +38,8 @@ Sprint 3 integrates a local cache of City of Eugene GIS infrastructure data, add
   annotation creation or status review.
 - Generates readable HTML evidence with labeled metrics, signals, notes, and
   data limitations.
+- Presents CURBO as a self-contained civic mobility application; release and
+  implementation history stays in the engineering documentation.
 
 ## Run Locally
 
@@ -103,10 +105,11 @@ docker compose config
 - `scripts/`: safe fetch and validation utilities.
 - `postgres`: PostGIS-ready service retained for future persistence work.
 
-Sprint 4 includes 27 backend tests and 9 frontend tests in 6 files. Coverage
+Sprint 4 includes 27 backend tests and 13 frontend tests in 7 files. Coverage
 includes geometry validation, restart persistence, rejected-vs-confirmed
 corridor effects, the synchronized API/fallback contract, report readability,
-curb-ramp sentinel handling, dimensional prompts, and review UI behavior.
+curb-ramp sentinel handling, dimensional prompts, review UI behavior, and
+product-facing language boundaries.
 
 ## Intentionally Not Included
 

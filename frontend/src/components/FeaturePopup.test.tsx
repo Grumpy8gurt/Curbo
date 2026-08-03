@@ -11,7 +11,7 @@ describe("FeaturePopup", () => {
       layerId: "annotations",
       title: "missing curb cut",
       subtitle: "Planner annotation",
-      source: "frontend",
+      source: "CURBO reviewer",
       status: "pending",
       notes: "Ramp is absent.",
       coordinates: [-123.08, 44.05]

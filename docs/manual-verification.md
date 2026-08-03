@@ -16,12 +16,13 @@ and report directory, so repository runtime data was not modified.
 | Reject invalid explicit GeoJSON | Out-of-range point and line coordinates return HTTP 422 | Automated API tests rejected longitude 999 and latitude 999 | Pass |
 | Preserve and screen curb-ramp measurements | Eugene left/right widths, grades, and cross slopes survive normalization; out-of-reference values prompt field review without a compliance claim | Backend and frontend tests retained left/right grades, suppressed nonpositive width sentinels, preserved valid 0% slopes, and produced prompts for 3.5 ft width, 8.6% grade, and 2.9% cross slope | Pass |
 | Verify responsive civic-dashboard presentation | Mobile layout has no horizontal overflow and keeps map overlays inside the map | At a 390×844 viewport, `scrollWidth` equaled viewport width, the map appeared before controls, and the corrected annotation legend remained inside the map panel | Pass |
-| Verify synchronized contracts and state refresh | FastAPI response, frontend types, fallbacks, report panel, and selected-corridor refresh agree | Schema/type key comparison, six frontend test files, production build, and live create/review flows passed; generated report links were invalidated on corridor refresh | Pass |
+| Verify product-facing interface language | The application describes planning tasks and limitations without exposing release stages or implementation instructions | A connected browser pass found the CURBO/Eugene civic mobility identity and no visible occurrence of “sprint,” “prototype,” “backend,” “frontend,” “fallback,” or “development”; browser error logs were empty | Pass |
+| Verify synchronized contracts and state refresh | FastAPI response, frontend types, fallbacks, report panel, and selected-corridor refresh agree | Schema/type key comparison, seven frontend test files, production build, and live create/review flows passed; generated report links were invalidated on corridor refresh | Pass |
 
 ### Sprint 4 Automated Checks
 
 - `cd backend && python3 -m pytest -q` — 27 passed
-- `cd frontend && npm test` — 9 passed in 6 test files
+- `cd frontend && npm test` — 13 passed in 7 test files
 - `cd frontend && npm run build` — passed
 - `cd frontend && npm audit` — zero vulnerabilities
 - `python scripts/validate_geojson.py` — 7 valid files
@@ -35,7 +36,7 @@ and report directory, so repository runtime data was not modified.
 | The backend status PATCH existed but had no user-facing control. | Add a review-status selector, PATCH client, fallback update, and local state synchronization. | Browser create/review workflow plus frontend component and API tests passed. |
 | Explicit GeoJSON coordinates bypassed longitude/latitude range checks. | Share finite/range validation across Point and every LineString position. | Both invalid explicit geometry cases return HTTP 422. |
 | Eugene curb-ramp measurements were discarded during normalization. | Preserve aggregate and left/right width, grade, and cross-slope fields and display available values with units. | Backend normalization and frontend rendering tests passed. |
-| The frontend had no automated test runner. | Add Vitest, jsdom, and Testing Library with focused user-effect tests. | Nine frontend tests pass in six files under CI-style run mode. |
+| The frontend had no automated test runner. | Add Vitest, jsdom, and Testing Library with focused user-effect tests. | Thirteen frontend tests pass in seven files under CI-style run mode. |
 | Annotation descriptions could exceed the backend limit before submission. | Add the matching 2,000-character limit to the textarea. | TypeScript build and component behavior remained valid. |
 | Corridor parking conflicts were fixed at zero and bicycle-gap/intersection annotations were ignored. | Derive concern categories from nearby active annotations and return them through the API, UI, fallbacks, and report. | Status-aware backend/fallback tests and the live DOYLE ST workflow passed. |
 | Rejected annotations still increased active concern counts. | Keep every note in the historical total while excluding `rejected` records from active concern metrics and review attention. | Automated tests and live reject/confirm transitions demonstrated the distinction. |
@@ -45,6 +46,7 @@ and report directory, so repository runtime data was not modified.
 | Zero width sentinels displayed as physical measurements. | Normalize nonpositive widths to null and defensively suppress them in the frontend while preserving valid zero slopes. | Boundary-focused backend/frontend tests passed. |
 | Measurements lacked a limited, actionable review cue. | Compare published values with documented references in a pure helper and always label the result as screening only. | Helper and popup tests passed at boundary and out-of-reference values. |
 | The corridor interface lacked review hierarchy and accessible activity feedback. | Add review-attention hierarchy, labeled metrics/signals, `aria-live` status, visible keyboard focus, clearer layer state, stronger contrast, and responsive ordering. | Production build, component tests, desktop browser flow, and 390×844 visual pass succeeded. |
+| Sprint, prototype, backend, and fallback labels made the product interface read like an engineering demo. | Replace release-process language with permanent civic mobility identity, operational controls, user-oriented errors, and review guidance; keep release history in documentation. | Product-language component tests and a connected-browser visible-text scan passed with no forbidden terms or browser errors. |
 | Removing sticky positioning at the mobile breakpoint let the absolute legend overlap the page header. | Keep the mobile map non-sticky but restore it as the legend's positioned containing block. | Follow-up viewport metrics confirmed the legend top remained below the map top with no horizontal overflow. |
 | A singular review signal used “still need review.” | Choose `needs` for one annotation and `need` for plural annotations in backend and fallback text. | Follow-up source and automated verification passed. |
 

@@ -330,7 +330,7 @@ export function getFallbackCorridorSummary(roadId: string): CorridorSummary {
       reviewPriority: "Low" as const,
       reviewSignals: [],
       dataLimitation: DATA_LIMITATION,
-      planningNotes: ["No fallback corridor summary is defined for this road yet."]
+      planningNotes: ["No corridor summary is available for this road."]
     };
   const nearbyAnnotations = getNearbyAnnotations(roadId);
   const activeAnnotations = nearbyAnnotations.filter(
@@ -465,6 +465,6 @@ export function createFallbackReport(corridorId: string, roadName: string): Corr
     reportId,
     roadId: corridorId,
     downloadUrl: "",
-    summary: `${roadName} report preview generated locally. Connect the backend to download HTML.`
+    summary: `${roadName} report preview is ready.`
   };
 }

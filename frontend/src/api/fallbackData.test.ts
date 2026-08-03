@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addFallbackAnnotation,
+  createFallbackReport,
   getFallbackCorridorSummary,
   updateFallbackAnnotation
 } from "./fallbackData";
@@ -25,5 +26,12 @@ describe("fallback corridor analysis", () => {
     const rejected = getFallbackCorridorSummary(roadId);
     expect(rejected.bikeLaneGaps).toBe(baseline.bikeLaneGaps);
     expect(rejected.userAnnotationsNearby).toBe(baseline.userAnnotationsNearby + 1);
+  });
+
+  it("returns a product-facing report preview message", () => {
+    const report = createFallbackReport("road_rd_001", "Willamette Street");
+
+    expect(report.summary).toBe("Willamette Street report preview is ready.");
+    expect(report.summary).not.toMatch(/backend|local|fallback/i);
   });
 });

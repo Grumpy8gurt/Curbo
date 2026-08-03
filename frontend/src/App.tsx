@@ -113,7 +113,7 @@ export default function App() {
         setBikeLanes(nextBikeLanes);
         setActivityMessage("Eugene infrastructure layers loaded. Ready for corridor review.");
       } catch {
-        setActivityMessage("Some Eugene layers are unavailable. Local fallbacks remain active.");
+        setActivityMessage("Some Eugene layers are unavailable. Available map information is shown.");
       } finally {
         setLoading(false);
       }
@@ -182,7 +182,7 @@ export default function App() {
     await refreshCorridor(nextRoadId, {
       loading: "Running corridor analysis...",
       success: (summary) => `Loaded corridor summary for ${summary.name}.`,
-      failure: "Corridor analysis failed. Verify the selected road and backend."
+      failure: "Corridor analysis is unavailable. Select another road or try again."
     });
   }, [refreshCorridor]);
 
@@ -350,7 +350,7 @@ export default function App() {
     } catch {
       if (requestId === reportRequestIdRef.current) {
         setReportResult(null);
-        setActivityMessage("Report generation failed. Verify the backend and try again.");
+        setActivityMessage("Report generation is unavailable. Please try again.");
       }
     } finally {
       if (requestId === reportRequestIdRef.current) {
@@ -373,7 +373,7 @@ export default function App() {
           <>
             <Sidebar
               title="Map layers"
-              description="Toggle cached City of Eugene infrastructure layers and user annotations."
+              description="Explore City of Eugene infrastructure and reviewer annotations."
             >
               <LayerPanel
                 visibility={visibility}
@@ -383,13 +383,6 @@ export default function App() {
                   hydrants: hydrants.features.length,
                   bikeLanes: bikeLanes.features.length,
                   annotations: annotations.features.length
-                }}
-                layerStatuses={{
-                  roads: roads.metadata?.status ?? "local fallback",
-                  sidewalkRamps: sidewalkRamps.metadata?.status ?? "local fallback",
-                  hydrants: hydrants.metadata?.status ?? "local fallback",
-                  bikeLanes: bikeLanes.metadata?.status ?? "local fallback",
-                  annotations: annotations.metadata?.status ?? "persistent"
                 }}
                 onToggle={toggleLayer}
               />
@@ -446,7 +439,7 @@ export default function App() {
           <>
             <Sidebar
               title="Corridor report"
-              description="Review a lightweight summary calculated from the current Eugene layers."
+              description="Review infrastructure and annotation evidence for the selected corridor."
             >
               <ReportPanel
                 summary={corridorSummary}
@@ -457,13 +450,13 @@ export default function App() {
             </Sidebar>
 
             <Sidebar
-              title="Working assumptions"
-              description="Know what the screening workspace can and cannot conclude."
+              title="Review guidance"
+              description="Use CURBO as a screening and documentation tool."
             >
               <ul className="assumption-list">
-                <li>The backend serves normalized files from the local Eugene data cache.</li>
-                <li>The frontend falls back to small local samples if the API is unavailable.</li>
-                <li>User annotations persist to a local JSON file through the backend.</li>
+                <li>Map layers reflect the infrastructure records currently available to CURBO.</li>
+                <li>Reviewer annotations remain visible as part of the corridor history.</li>
+                <li>Rejected annotations are excluded from active concern counts.</li>
                 <li>Review attention is explainable screening, not a safety or project score.</li>
               </ul>
             </Sidebar>

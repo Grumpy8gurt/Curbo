@@ -8,8 +8,8 @@ export function Header() {
       <div className="header-chip">
         <span className="status-dot" aria-hidden="true" />
         <span>
-          <strong>Sprint 4</strong>
-          Eugene civic review workspace
+          <strong>Eugene, Oregon</strong>
+          Civic mobility review
         </span>
       </div>
     </header>

@@ -112,7 +112,7 @@ export function toSelectedFeatureDetails(
         layerId,
         title: "Map feature",
         subtitle: "Unconfigured layer",
-        source: "frontend",
+        source: "CURBO map",
         coordinates: getFeatureCenter(feature.geometry)
       };
   }

@@ -103,7 +103,7 @@ export function ReportPanel({
               Download HTML report
             </a>
           ) : (
-            <small>Downloads require the backend API.</small>
+            <small>Report download is unavailable in this session.</small>
           )}
         </div>
       ) : null}
