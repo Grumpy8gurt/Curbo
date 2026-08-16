@@ -4,6 +4,9 @@ import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 1100
+  },
   envDir: fileURLToPath(new URL("..", import.meta.url)),
   server: {
     port: 5173,

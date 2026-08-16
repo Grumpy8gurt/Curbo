@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.geojson import LineStringGeometry, PointGeometry
 
@@ -26,12 +26,13 @@ AnnotationType = Literal[
 
 AnnotationGeometry = PointGeometry | LineStringGeometry
 
-# Lifecycle states an annotation can move through:
-#   pending → reviewed → confirmed | rejected
+# Lifecycle states are defined here; allowed transitions are enforced by
+# AppStore so every persistence path follows the same workflow rules.
 AnnotationStatus = Literal["pending", "reviewed", "confirmed", "rejected"]
 
 
 class AnnotationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     annotation_type: AnnotationType = Field(
         # Accept camelCase (frontend), snake_case (API docs), and short alias
         # so both the frontend JSON body and curl examples work without a transformer.
@@ -44,7 +45,6 @@ class AnnotationCreate(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
     # If geometry is provided explicitly it takes precedence over lat/lng.
     geometry: AnnotationGeometry | None = None
-    source: str = Field(default="planner", min_length=1, max_length=64)
 
     @model_validator(mode="after")
     def populate_geometry(self) -> "AnnotationCreate":
@@ -64,7 +64,12 @@ class AnnotationCreate(BaseModel):
 
 class AnnotationUpdate(BaseModel):
     """Partial update — only status transitions are supported post-creation."""
+    model_config = ConfigDict(extra="forbid")
     status: AnnotationStatus
+    expected_version: int = Field(
+        ge=1,
+        validation_alias=AliasChoices("expectedVersion", "expected_version"),
+    )
 
 
 class AnnotationFeatureProperties(BaseModel):
@@ -74,6 +79,7 @@ class AnnotationFeatureProperties(BaseModel):
     status: AnnotationStatus
     source: str
     created_at: datetime
+    version: int
 
 
 class AnnotationFeatureResponse(BaseModel):

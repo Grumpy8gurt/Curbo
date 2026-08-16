@@ -35,6 +35,7 @@ export interface AnnotationProperties {
   source: string;
   // ISO 8601 string (the backend serialises datetime to isoformat before sending).
   created_at: string;
+  version: number;
 }
 
 /**

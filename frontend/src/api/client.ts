@@ -7,12 +7,21 @@ export const API_BASE_URL =
 // fallback data immediately.  Useful for frontend-only development without
 // running the Python backend.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === "true";
+const API_KEY = import.meta.env.VITE_CURBO_API_KEY;
+const REQUEST_TIMEOUT_MS = 15_000;
 
-// Sentinel error class so fetchJsonWithFallback can distinguish server errors
-// (4xx/5xx) from network failures (TypeError from fetch).
-// Server errors are re-thrown — they indicate a backend bug, not an outage.
-// Network failures fall through to the offline fallback.
-class ApiRequestError extends Error {}
+// Normalized error class for HTTP errors, timeouts, network failures, and
+// malformed responses. Real requests never switch into mock mode after an
+// error; mock behavior is selected only by VITE_USE_MOCK_API.
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
 
 export async function resolveFallback<T>(value: T, delayMs = 180): Promise<T> {
   // Simulate a small network delay in mock/fallback mode so the UI loading
@@ -25,10 +34,66 @@ export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
 
+export async function fetchJson<T>(
+  path: string,
+  init?: RequestInit,
+  validate?: (value: unknown) => value is T
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/json");
+  if (API_KEY) {
+    headers.set("X-API-Key", API_KEY);
+  }
+
+  const abortFromCaller = () => controller.abort();
+  init?.signal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  try {
+    const response = await fetch(apiUrl(path), {
+      ...init,
+      headers,
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const errorBody = (await response.json()) as { detail?: string };
+        detail = errorBody.detail ?? detail;
+      } catch {
+        // A non-JSON error page still becomes a normal ApiRequestError.
+      }
+      throw new ApiRequestError(detail, response.status);
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      throw new ApiRequestError("The API returned an unexpected response format");
+    }
+    const payload: unknown = await response.json();
+    if (validate && !validate(payload)) {
+      throw new ApiRequestError("The API response did not match the expected contract");
+    }
+    return payload as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiRequestError("The API request timed out");
+    }
+    if (error instanceof TypeError) {
+      throw new ApiRequestError("The CURBO API is unreachable");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    init?.signal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
 export async function fetchJsonWithFallback<T>(
   path: string,
   fallback: T | (() => T),
-  init?: RequestInit
+  init?: RequestInit,
+  validate?: (value: unknown) => value is T
 ): Promise<T> {
   const fallbackValue = () =>
     typeof fallback === "function" ? (fallback as () => T)() : fallback;
@@ -37,23 +102,7 @@ export async function fetchJsonWithFallback<T>(
     return resolveFallback(fallbackValue());
   }
 
-  try {
-    const response = await fetch(apiUrl(path), init);
-    if (!response.ok) {
-      throw new ApiRequestError(`${response.status} ${response.statusText}`);
-    }
-    return (await response.json()) as T;
-  } catch (error) {
-    // Re-throw ApiRequestError (server errors) and non-TypeError exceptions
-    // (unexpected runtime errors) so they surface to the caller.
-    // TypeError is thrown by fetch when the network is unreachable — in that
-    // case, silently fall back to the local data and log a warning.
-    if (error instanceof ApiRequestError || !(error instanceof TypeError)) {
-      throw error;
-    }
-    console.warn(`CURBO API unavailable for ${path}; using local fallback.`, error);
-    return resolveFallback(fallbackValue(), 40);
-  }
+  return fetchJson<T>(path, init, validate);
 }
 
 function deepClone<T>(value: T): T {

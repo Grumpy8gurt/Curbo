@@ -17,7 +17,7 @@ from app.main import create_app
 @pytest.fixture()
 def client(tmp_path):
     settings = Settings(
-        database_url="sqlite://",
+        database_url=f"sqlite:///{tmp_path / 'curbo.db'}",
         report_dir=str(tmp_path / "reports"),
         annotation_file=str(tmp_path / "annotations.json"),
     )

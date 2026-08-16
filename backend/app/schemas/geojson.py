@@ -34,7 +34,7 @@ class PointGeometry(BaseModel):
 class LineStringGeometry(BaseModel):
     """GeoJSON LineString geometry.  At least two positions are required by the spec."""
     type: Literal["LineString"] = "LineString"
-    coordinates: list[list[float]]
+    coordinates: list[list[float]] = Field(min_length=2, max_length=1_000)
 
     @field_validator("coordinates")
     @classmethod

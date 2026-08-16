@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.dependencies import get_store
 from app.schemas.layers import LayerFeatureCollection
@@ -12,10 +12,22 @@ router = APIRouter(prefix="/layers", tags=["layers"])
 
 @router.get("/roads", response_model=LayerFeatureCollection)
 def get_roads(
+    request: Request,
+    response: Response,
     bbox: str | None = Query(default=None),
     store: AppStore = Depends(get_store),
 ):
     """Return the full road network, optionally clipped to a bounding box."""
+    if bbox is None:
+        headers = {
+            "ETag": store.roads_etag,
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+            "Vary": "Accept-Encoding",
+        }
+        if request.headers.get("If-None-Match") == store.roads_etag:
+            return Response(status_code=304, headers=headers)
+        for name, value in headers.items():
+            response.headers[name] = value
     return filter_feature_collection(store.roads, parse_bbox(bbox))
 
 

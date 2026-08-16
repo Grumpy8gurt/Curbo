@@ -7,10 +7,14 @@ import argparse
 import json
 import os
 import sys
+import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
+
+from validate_geojson import validate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +45,13 @@ LAYERS = {
         "*",
     ),
 }
+MINIMUM_FEATURES = {
+    "roads": 10_000,
+    "sidewalk_ramps": 1_000,
+    "hydrants": 1_000,
+    "bike_lanes": 100,
+}
+MAX_RESPONSE_BYTES = 50 * 1024 * 1024
 
 
 def fetch_geojson(url: str, out_fields: str = "*") -> dict:
@@ -74,15 +85,26 @@ def fetch_geojson(url: str, out_fields: str = "*") -> dict:
 
 
 def _fetch_page(query_url: str) -> dict:
+    parsed = urlparse(query_url)
+    allowed_hosts = {
+        host.strip().lower()
+        for host in os.getenv("EUGENE_ALLOWED_HOSTS", "services3.arcgis.com").split(",")
+        if host.strip()
+    }
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in allowed_hosts:
+        raise ValueError("data source must use HTTPS and an explicitly allowed host")
     request = Request(query_url, headers={"User-Agent": "CURBO-Sprint-3/1.0"})
     with urlopen(request, timeout=30) as response:
-        payload = json.load(response)
+        raw_payload = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw_payload) > MAX_RESPONSE_BYTES:
+        raise ValueError("response exceeds the 50 MB safety limit")
+    payload = json.loads(raw_payload)
     if payload.get("type") != "FeatureCollection":
         raise ValueError("response is not a GeoJSON FeatureCollection")
     return payload
 
 
-def normalize(collection: dict, layer_name: str) -> dict:
+def normalize(collection: dict, layer_name: str, source_url: str) -> dict:
     features = []
     for index, feature in enumerate(collection.get("features", []), start=1):
         if not feature.get("geometry") or not isinstance(feature.get("properties"), dict):
@@ -92,7 +114,15 @@ def normalize(collection: dict, layer_name: str) -> dict:
         if not feature["properties"].get("source"):
             feature["properties"]["source"] = "city-of-eugene-gis"
         features.append(feature)
-    return {"type": "FeatureCollection", "features": features}
+    return {
+        "type": "FeatureCollection",
+        "metadata": {
+            "layer": layer_name,
+            "source": source_url,
+            "refreshed_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "features": features,
+    }
 
 
 def main() -> int:
@@ -129,13 +159,39 @@ def main() -> int:
                 else "no cache available"
             )
             print(f"SKIP {layer_name}: cache-only mode; {cache_status}.")
+            if not destination.exists():
+                failures += 1
             continue
 
         try:
-            collection = normalize(fetch_geojson(url, out_fields), layer_name)
-            temporary = destination.with_suffix(".tmp")
-            temporary.write_text(json.dumps(collection, indent=2), encoding="utf-8")
-            temporary.replace(destination)
+            collection = normalize(fetch_geojson(url, out_fields), layer_name, url)
+            feature_count = len(collection["features"])
+            if feature_count < MINIMUM_FEATURES[layer_name]:
+                raise ValueError(
+                    f"received only {feature_count} features; expected at least "
+                    f"{MINIMUM_FEATURES[layer_name]}"
+                )
+            temporary: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    dir=OUTPUT_DIR,
+                    prefix=f".{filename}.",
+                    suffix=".tmp",
+                    delete=False,
+                ) as handle:
+                    temporary = Path(handle.name)
+                    json.dump(collection, handle, indent=2)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                errors = validate(temporary)
+                if errors:
+                    raise ValueError("validation failed: " + "; ".join(errors[:5]))
+                temporary.replace(destination)
+            finally:
+                if temporary is not None and temporary.exists():
+                    temporary.unlink()
             print(f"FETCHED {layer_name}: {len(collection['features'])} features.")
         except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
             failures += 1
@@ -149,7 +205,7 @@ def main() -> int:
         )
     else:
         print("Eugene data refresh complete.")
-    return 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

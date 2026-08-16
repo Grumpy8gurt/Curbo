@@ -97,3 +97,22 @@ def test_layer_bbox_rejects_reversed_bounds(client):
     response = client.get("/api/layers/roads", params={"bbox": "1,1,0,0"})
 
     assert response.status_code == 422
+
+
+def test_layer_bbox_rejects_out_of_range_coordinates(client):
+    response = client.get("/api/layers/roads", params={"bbox": "-181,0,0,1"})
+
+    assert response.status_code == 422
+
+
+def test_roads_layer_supports_compressed_conditional_caching(client):
+    first = client.get("/api/layers/roads", headers={"Accept-Encoding": "gzip"})
+    etag = first.headers["ETag"]
+
+    cached = client.get("/api/layers/roads", headers={"If-None-Match": etag})
+
+    assert first.status_code == 200
+    assert first.headers["Content-Encoding"] == "gzip"
+    assert "max-age=300" in first.headers["Cache-Control"]
+    assert cached.status_code == 304
+    assert cached.content == b""

@@ -33,6 +33,8 @@ export interface CurbRampProperties {
   left_width_feet?: number | null;
   right_width_feet?: number | null;
   grade_percent?: number | null;
+  left_grade_percent?: number | null;
+  right_grade_percent?: number | null;
   cross_slope_percent?: number | null;
   left_cross_slope_percent?: number | null;
   right_cross_slope_percent?: number | null;

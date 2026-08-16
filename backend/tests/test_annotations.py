@@ -20,12 +20,13 @@ def test_annotation_can_be_created_and_updated(client):
 
     patch_response = client.patch(
         f"/api/annotations/{created['properties']['annotation_id']}",
-        json={"status": "reviewed"},
+        json={"status": "reviewed", "expectedVersion": 1},
     )
 
     assert patch_response.status_code == 200
     assert patch_response.json()["properties"]["status"] == "reviewed"
-    assert Path(client.app.state.settings.resolved_annotation_file).exists()
+    database_path = Path(client.app.state.settings.resolved_database_url.removeprefix("sqlite:///"))
+    assert database_path.exists()
 
 
 def test_annotation_rejects_invalid_coordinates(client):
@@ -110,7 +111,82 @@ def test_annotation_rejects_out_of_range_explicit_geometry(client):
 def test_annotation_update_returns_not_found_for_unknown_id(client):
     response = client.patch(
         "/api/annotations/ann_missing",
-        json={"status": "reviewed"},
+        json={"status": "reviewed", "expectedVersion": 1},
     )
 
     assert response.status_code == 404
+
+
+def test_annotation_rejects_spoofed_source(client):
+    response = client.post(
+        "/api/annotations",
+        json={
+            "annotationType": "other",
+            "description": "Spoofed source",
+            "latitude": 44.052,
+            "longitude": -123.075,
+            "source": "City of Eugene GIS",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_annotation_rejects_excessive_line_vertices(client):
+    response = client.post(
+        "/api/annotations",
+        json={
+            "annotationType": "other",
+            "description": "Too many vertices",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[-123.075, 44.052] for _ in range(1001)],
+            },
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_annotation_create_is_idempotent(client):
+    payload = {
+        "annotationType": "other",
+        "description": "Retry-safe create",
+        "latitude": 44.052,
+        "longitude": -123.075,
+    }
+    headers = {"Idempotency-Key": "test-retry-key-123"}
+
+    first = client.post("/api/annotations", json=payload, headers=headers)
+    second = client.post("/api/annotations", json=payload, headers=headers)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["id"] == second.json()["id"]
+    assert len(client.get("/api/annotations").json()["features"]) == 1
+
+
+def test_annotation_update_rejects_stale_version(client):
+    created = client.post(
+        "/api/annotations",
+        json={
+            "annotationType": "other",
+            "description": "Concurrent update check",
+            "latitude": 44.052,
+            "longitude": -123.075,
+        },
+    ).json()
+    annotation_id = created["id"]
+
+    first = client.patch(
+        f"/api/annotations/{annotation_id}",
+        json={"status": "reviewed", "expectedVersion": 1},
+    )
+    stale = client.patch(
+        f"/api/annotations/{annotation_id}",
+        json={"status": "rejected", "expectedVersion": 1},
+    )
+
+    assert first.status_code == 200
+    assert first.json()["properties"]["version"] == 2
+    assert stale.status_code == 409

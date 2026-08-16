@@ -1,10 +1,10 @@
 # Frontend
 
-This React + TypeScript + Vite frontend is the Eugene-focused planning dashboard for CURBO. It calls the FastAPI backend by default and uses compact local fallback data when the API is unavailable.
+This React + TypeScript + Vite frontend is the Eugene-focused planning dashboard for CURBO. It calls the FastAPI backend by default. Mock data is used only when explicitly enabled.
 
 ## Run locally
 
-1. From the repository's `frontend/` directory, run `npm install`.
+1. From the repository's `frontend/` directory, run `npm ci`.
 2. Start the dev server with `npm run dev`.
 3. Build a production bundle with `npm run build`.
 4. Run component and API tests with `npm test`.
@@ -18,33 +18,33 @@ VITE_USE_MOCK_API=false
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-## Offline fallback
+## Explicit demo mode
 
-- API modules catch network failures and return compact data from `src/api/fallbackData.ts`.
-- Set `VITE_USE_MOCK_API=true` to force fallback mode.
+- Network failures are shown as errors and never create browser-only “saved” data.
+- Set `VITE_USE_MOCK_API=true` only to force a visibly labeled local demo.
 - Layer status and feature counts are shown in the layer panel.
 
 ## Current scope
 
 - MapLibre map centered on Eugene, Oregon
 - Layer toggles for the complete 13,520-segment Eugene road snapshot, bounded sidewalk-ramp, hydrant, and bike-facility extracts, and user annotations
-- Collision-aware directional street-name labels with locally bundled map glyphs
+- Searchable road selector capped at 50 rendered options
 - Corridor selection and summary panel
 - Reviewer annotation tools for map-placed points and drawn lines
 - Persistent annotation review status controls in the selected-feature popup
 - Available curb-ramp width and slope measurements with explicit units
-- Backend corridor summaries and report generation with fallback behavior
+- Backend corridor summaries and report generation with explicit error behavior
 
 ## Live API Expectations
 
-When `VITE_USE_MOCK_API=false`, the frontend expects:
+When `VITE_USE_MOCK_API=false`, the frontend expects the canonical API:
 
-- `GET /api/annotations` to return a GeoJSON `FeatureCollection`
-- `GET /api/layers/roads`
-- `GET /api/layers/sidewalk-ramps`
-- `GET /api/layers/hydrants`
-- `GET /api/layers/bike-lanes`
-- `POST /api/annotations` to accept `{ annotationType, description, geometry }` with GeoJSON `Point` or `LineString` geometry
-- `PATCH /api/annotations/{annotation_id}` to accept a review `status`
-- `POST /api/corridors/analyze` to accept `{ roadId }`
-- `POST /api/reports/corridor` to accept `{ roadId, format }` or `{ corridor_id, format }`
+- `GET /api/v1/annotations` to return a GeoJSON `FeatureCollection`
+- `GET /api/v1/layers/roads`
+- `GET /api/v1/layers/sidewalk-ramps`
+- `GET /api/v1/layers/hydrants`
+- `GET /api/v1/layers/bike-lanes`
+- `POST /api/v1/annotations` to accept `{ annotationType, description, geometry }` with GeoJSON `Point` or `LineString` geometry
+- `PATCH /api/v1/annotations/{annotation_id}` to accept `{ status, expectedVersion }`
+- `POST /api/v1/corridors/analyze` to accept `{ roadId }`
+- `POST /api/v1/reports/corridor` to accept `{ roadId, format }` or `{ corridor_id, format }`

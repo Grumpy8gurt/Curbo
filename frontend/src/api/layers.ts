@@ -11,25 +11,48 @@ import type {
   HydrantFeatureCollection,
   RoadFeatureCollection
 } from "../types/layers";
+import {
+  isBikeLaneFeatureCollection,
+  isCurbRampFeatureCollection,
+  isHydrantFeatureCollection,
+  isRoadFeatureCollection
+} from "./validation";
 
 // Each getter passes a pre-computed fallback value (not a factory function)
 // because the fallback collections are module-level constants and are safe to
 // share directly.  fetchJsonWithFallback deep-clones them before returning.
 export async function getRoads(): Promise<RoadFeatureCollection> {
-  return fetchJsonWithFallback("/api/layers/roads", getFallbackRoads());
+  return fetchJsonWithFallback(
+    "/api/v1/layers/roads",
+    getFallbackRoads(),
+    undefined,
+    isRoadFeatureCollection
+  );
 }
 
 export async function getSidewalkRamps(): Promise<CurbRampFeatureCollection> {
   return fetchJsonWithFallback(
-    "/api/layers/sidewalk-ramps",
-    getFallbackSidewalkRamps()
+    "/api/v1/layers/sidewalk-ramps",
+    getFallbackSidewalkRamps(),
+    undefined,
+    isCurbRampFeatureCollection
   );
 }
 
 export async function getHydrants(): Promise<HydrantFeatureCollection> {
-  return fetchJsonWithFallback("/api/layers/hydrants", getFallbackHydrants());
+  return fetchJsonWithFallback(
+    "/api/v1/layers/hydrants",
+    getFallbackHydrants(),
+    undefined,
+    isHydrantFeatureCollection
+  );
 }
 
 export async function getBikeLanes(): Promise<BikeLaneFeatureCollection> {
-  return fetchJsonWithFallback("/api/layers/bike-lanes", getFallbackBikeLanes());
+  return fetchJsonWithFallback(
+    "/api/v1/layers/bike-lanes",
+    getFallbackBikeLanes(),
+    undefined,
+    isBikeLaneFeatureCollection
+  );
 }
