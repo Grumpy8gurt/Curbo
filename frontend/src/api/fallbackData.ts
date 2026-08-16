@@ -250,7 +250,8 @@ function createAnnotationFeature(
       description: draft.description,
       status: "pending",
       source: "planner",
-      created_at: createdAt
+      created_at: createdAt,
+      version: 1
     },
     geometry: draft.geometry
   };
@@ -298,7 +299,11 @@ export function updateFallbackAnnotation(
 
   const updated = {
     ...feature,
-    properties: { ...feature.properties, status }
+    properties: {
+      ...feature.properties,
+      status,
+      version: feature.properties.version + 1
+    }
   };
   annotations = {
     ...annotations,

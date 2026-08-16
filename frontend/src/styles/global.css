@@ -200,6 +200,18 @@ a:focus-visible {
   min-height: 76vh;
 }
 
+.map-loading {
+  display: grid;
+  min-height: 76vh;
+  place-items: center;
+  padding: 24px;
+  border-radius: 28px;
+  background: #dbe7de;
+  color: var(--navy);
+  font-weight: 700;
+  text-align: center;
+}
+
 .annotation-legend {
   position: absolute;
   top: 14px;

@@ -1,4 +1,4 @@
-/** Corridor planning summary returned by POST /api/corridors/analyze. */
+/** Corridor planning summary returned by POST /api/v1/corridors/analyze. */
 export interface CorridorSummary {
   corridorId: string;
   roadId: string;

@@ -65,9 +65,6 @@ const LAYER_IDS = {
   bikeLanes: "bike-lanes-layer"
 } satisfies Record<LayerId, string>;
 
-// Road labels live in a separate symbol layer so they can be toggled
-// alongside the road line layer without duplicating visibility logic.
-const ROAD_LABEL_LAYER_ID = "road-labels-layer";
 const ANNOTATION_LINE_LAYER_ID = "annotation-lines-layer";
 const DRAFT_SOURCE_ID = "annotation-draft-source";
 const DRAFT_LINE_LAYER_ID = "annotation-draft-line-layer";
@@ -75,12 +72,9 @@ const DRAFT_POINT_LAYER_ID = "annotation-draft-point-layer";
 
 // Minimal self-contained MapLibre style — no external tile server required.
 // The green-tinted background provides enough contrast for the Eugene road network.
-// Glyphs are loaded from MapLibre's public demo CDN; swap for a self-hosted
-// font server in a production deployment.
 const LOCAL_MAP_STYLE: StyleSpecification = {
   version: 8,
   name: "CURBO local style",
-  glyphs: "/fonts/{fontstack}/{range}.pbf",
   sources: {},
   layers: [
     {
@@ -171,9 +165,8 @@ export function MapView({
     };
   }, [onFeatureSelect, onRoadSelect]);
 
-  // Effect 2: Sync GeoJSON data into sources whenever the prop data changes.
-  // mapLoaded is in the dep array so this runs immediately after map init
-  // and ensures the first API response is painted without a full re-render.
+  // Sync each source independently so an annotation update does not force
+  // MapLibre to reparse the much larger road collection.
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.isStyleLoaded()) {
@@ -181,16 +174,31 @@ export function MapView({
     }
 
     setSourceData(map, SOURCE_IDS.roads, roads);
-    setSourceData(map, SOURCE_IDS.sidewalkRamps, sidewalkRamps);
-    setSourceData(map, SOURCE_IDS.hydrants, hydrants);
-    setSourceData(map, SOURCE_IDS.annotations, annotations);
-    setSourceData(map, SOURCE_IDS.bikeLanes, bikeLanes);
-
     if (!hasFittedBoundsRef.current && roads.features.length > 0) {
       fitMapToRoads(map, roads);
       hasFittedBoundsRef.current = true;
     }
-  }, [mapLoaded, roads, sidewalkRamps, hydrants, bikeLanes, annotations]);
+  }, [mapLoaded, roads]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) setSourceData(map, SOURCE_IDS.sidewalkRamps, sidewalkRamps);
+  }, [mapLoaded, sidewalkRamps]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) setSourceData(map, SOURCE_IDS.hydrants, hydrants);
+  }, [mapLoaded, hydrants]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) setSourceData(map, SOURCE_IDS.annotations, annotations);
+  }, [mapLoaded, annotations]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.isStyleLoaded()) setSourceData(map, SOURCE_IDS.bikeLanes, bikeLanes);
+  }, [mapLoaded, bikeLanes]);
 
   // Effect 3: Sync layer visibility independently of data updates.
   useEffect(() => {
@@ -235,7 +243,24 @@ export function MapView({
 
   return (
     <div className="map-panel">
-      <div ref={mapContainerRef} className="map-canvas" />
+      <div
+        ref={mapContainerRef}
+        className="map-canvas"
+        role="region"
+        tabIndex={0}
+        aria-label={
+          drawingMode
+            ? "CURBO map drawing area. Move the map with the keyboard and press Enter to place a point."
+            : "CURBO infrastructure map"
+        }
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && drawingMode && mapRef.current) {
+            const center = mapRef.current.getCenter();
+            onDrawClick([center.lng, center.lat]);
+            event.preventDefault();
+          }
+        }}
+      />
       {visibility.annotations ? (
         <div className="annotation-legend" aria-label="Reviewer annotation legend">
           <strong>Reviewer notes</strong>
@@ -274,31 +299,6 @@ function addLayers(map: Map) {
     paint: {
       "line-color": "#2c3f59",
       "line-width": 4
-    }
-  });
-
-  map.addLayer({
-    id: ROAD_LABEL_LAYER_ID,
-    type: "symbol",
-    source: SOURCE_IDS.roads,
-    filter: ["!=", ["get", "name"], "Unnamed road"],
-    minzoom: 9,
-    layout: {
-      "symbol-placement": "line",
-      "symbol-spacing": 280,
-      "text-field": ["get", "name"],
-      "text-font": ["Open Sans Semibold"],
-      "text-size": ["interpolate", ["linear"], ["zoom"], 10, 9, 16, 14],
-      "text-letter-spacing": 0.03,
-      "text-max-angle": 35,
-      "text-padding": 4,
-      "text-keep-upright": true
-    },
-    paint: {
-      "text-color": "#172638",
-      "text-halo-color": "#f5f2e8",
-      "text-halo-width": 1.5,
-      "text-halo-blur": 0.5
     }
   });
 
@@ -444,14 +444,8 @@ function setSourceData(map: Map, sourceId: string, data: object) {
 }
 
 function syncVisibility(map: Map, visibility: LayerVisibility) {
-  // Road labels share the roads toggle so toggling the layer also hides labels.
   map.setLayoutProperty(
     LAYER_IDS.roads,
-    "visibility",
-    visibility.roads ? "visible" : "none"
-  );
-  map.setLayoutProperty(
-    ROAD_LABEL_LAYER_ID,
     "visibility",
     visibility.roads ? "visible" : "none"
   );

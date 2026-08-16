@@ -1,4 +1,4 @@
-/** Result returned by POST /api/reports/corridor. */
+/** Result returned by POST /api/v1/reports/corridor. */
 export interface CorridorReportResult {
   reportId: string;
   roadId: string;

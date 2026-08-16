@@ -16,6 +16,12 @@ const STATUS_OPTIONS: AnnotationStatus[] = [
   "confirmed",
   "rejected"
 ];
+const ALLOWED_STATUS_TRANSITIONS: Record<AnnotationStatus, AnnotationStatus[]> = {
+  pending: ["reviewed", "confirmed", "rejected"],
+  reviewed: ["confirmed", "rejected"],
+  confirmed: [],
+  rejected: []
+};
 
 export function FeaturePopup({
   feature,
@@ -47,6 +53,19 @@ export function FeaturePopup({
     }
   }
 
+  const annotationStatus =
+    feature.layerId === "annotations" &&
+    feature.status &&
+    feature.status in ALLOWED_STATUS_TRANSITIONS
+      ? (feature.status as AnnotationStatus)
+      : null;
+  const visibleStatuses = annotationStatus
+    ? [
+        annotationStatus,
+        ...ALLOWED_STATUS_TRANSITIONS[annotationStatus]
+      ]
+    : STATUS_OPTIONS;
+
   return (
     <div className="feature-popup">
       <div className="card-topline">
@@ -67,7 +86,7 @@ export function FeaturePopup({
               void handleStatusChange(event.target.value as AnnotationStatus)
             }
           >
-            {STATUS_OPTIONS.map((status) => (
+            {visibleStatuses.map((status) => (
               <option key={status} value={status}>
                 {status}
               </option>

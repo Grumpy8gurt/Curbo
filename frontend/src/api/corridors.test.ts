@@ -29,12 +29,17 @@ describe("analyzeCorridor", () => {
     };
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify(response), { status: 200 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
 
     const result = await analyzeCorridor("road_1");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8000/api/corridors/analyze",
+      "http://localhost:8000/api/v1/corridors/analyze",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ roadId: "road_1" })

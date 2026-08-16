@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   createAnnotation,
   getAnnotations,
@@ -12,12 +12,13 @@ import {
 } from "./api/layers";
 import { analyzeCorridor } from "./api/corridors";
 import { generateCorridorReport } from "./api/reports";
+import { USE_MOCK_API } from "./api/client";
 import { AnnotationTool } from "./components/AnnotationTool";
 import { CorridorSelector } from "./components/CorridorSelector";
 import { Header } from "./components/Header";
 import { LayerPanel } from "./components/LayerPanel";
 import { Layout } from "./components/Layout";
-import { MapView } from "./components/MapView";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ReportPanel } from "./components/ReportPanel";
 import { Sidebar } from "./components/Sidebar";
 import type {
@@ -54,6 +55,10 @@ const EMPTY_BIKE_LANES: BikeLaneFeatureCollection = {
   type: "FeatureCollection",
   features: []
 };
+
+const MapView = lazy(() =>
+  import("./components/MapView").then((module) => ({ default: module.MapView }))
+);
 
 export default function App() {
   // --- GIS layer state ---
@@ -111,7 +116,17 @@ export default function App() {
         setHydrants(nextHydrants);
         setAnnotations(nextAnnotations);
         setBikeLanes(nextBikeLanes);
-        setActivityMessage("Eugene infrastructure layers loaded. Ready for corridor review.");
+        const degradedLayers = [
+          nextRoads,
+          nextSidewalkRamps,
+          nextHydrants,
+          nextBikeLanes
+        ].filter((layer) => layer.metadata?.status !== "cached-eugene");
+        setActivityMessage(
+          USE_MOCK_API || degradedLayers.length > 0
+            ? "Development data mode: sample or incomplete information is shown and must not be used as production evidence."
+            : "Eugene infrastructure layers loaded. Ready for corridor review."
+        );
       } catch {
         setActivityMessage("Some Eugene layers are unavailable. Available map information is shown.");
       } finally {
@@ -304,7 +319,17 @@ export default function App() {
     annotationId: string,
     status: AnnotationStatus
   ) {
-    const updated = await updateAnnotationStatus(annotationId, status);
+    const current = annotations.features.find(
+      (feature) => feature.properties.annotation_id === annotationId
+    );
+    if (!current) {
+      throw new Error("Annotation is no longer present");
+    }
+    const updated = await updateAnnotationStatus(
+      annotationId,
+      status,
+      current.properties.version
+    );
     setAnnotations((current) => ({
       ...current,
       features: current.features.map((feature) =>
@@ -418,22 +443,26 @@ export default function App() {
           </>
         }
         map={
-          <MapView
-            roads={roads}
-            sidewalkRamps={sidewalkRamps}
-            hydrants={hydrants}
-            bikeLanes={bikeLanes}
-            annotations={annotations}
-            visibility={visibility}
-            selectedFeature={selectedFeature}
-            selectedRoadId={selectedRoadId}
-            drawingMode={drawingMode}
-            drawingCoordinates={drawingCoordinates}
-            onFeatureSelect={setSelectedFeature}
-            onRoadSelect={handleMapRoadSelection}
-            onDrawClick={handleDrawClick}
-            onAnnotationStatusChange={handleAnnotationStatusChange}
-          />
+          <ErrorBoundary>
+            <Suspense fallback={<div className="map-loading" role="status">Loading map…</div>}>
+              <MapView
+                roads={roads}
+                sidewalkRamps={sidewalkRamps}
+                hydrants={hydrants}
+                bikeLanes={bikeLanes}
+                annotations={annotations}
+                visibility={visibility}
+                selectedFeature={selectedFeature}
+                selectedRoadId={selectedRoadId}
+                drawingMode={drawingMode}
+                drawingCoordinates={drawingCoordinates}
+                onFeatureSelect={setSelectedFeature}
+                onRoadSelect={handleMapRoadSelection}
+                onDrawClick={handleDrawClick}
+                onAnnotationStatusChange={handleAnnotationStatusChange}
+              />
+            </Suspense>
+          </ErrorBoundary>
         }
         aside={
           <>
