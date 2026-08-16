@@ -30,6 +30,34 @@ def test_corridor_analysis_accepts_multiline_roads(client):
     assert response.status_code == 200
 
 
+def test_corridor_distance_excludes_bbox_corner_outside_metric_buffer():
+    from app.services.spatial_queries import _geometry_is_near_lines
+
+    corridor_lines = [[[0.0, 0.0], [0.001, 0.0]]]
+    geometry = {"type": "Point", "coordinates": [0.00125, 0.00025]}
+
+    assert not _geometry_is_near_lines(
+        geometry,
+        corridor_lines,
+        buffer_meters=30,
+        reference_latitude=0.0,
+    )
+
+
+def test_collinear_but_separate_segments_are_not_treated_as_intersecting():
+    from app.services.spatial_queries import _segment_distance_meters
+
+    distance = _segment_distance_meters(
+        [0.0, 0.0],
+        [0.001, 0.0],
+        [0.002, 0.0],
+        [0.003, 0.0],
+        reference_latitude=0.0,
+    )
+
+    assert distance > 100
+
+
 def test_reviewer_notes_do_not_become_infrastructure_inventory(client):
     road = client.app.state.store.roads["features"][0]
     road_id = road["properties"]["road_id"]
@@ -117,7 +145,7 @@ def test_corridor_concerns_follow_annotation_review_status(client):
     for annotation_type, status in status_updates.items():
         response = client.patch(
             f"/api/annotations/{created_ids[annotation_type]}",
-            json={"status": status},
+            json={"status": status, "expectedVersion": 1},
         )
         assert response.status_code == 200
 

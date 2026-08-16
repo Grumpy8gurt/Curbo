@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,13 +18,13 @@ class Settings(BaseSettings):
       3. .env     (backend directory — used inside Docker)
       4. Field defaults (lowest)
 
-    The Postgres fields are only relevant when DATABASE_URL is unset and the
-    optional PostGIS path is being exercised; for Sprint 3 the in-memory store
-    is the default runtime.
+    PostgreSQL is required in production and optional during local development.
+    Without DATABASE_URL, annotations use the locked JSON development store.
     """
 
     service_name: str = "curbo-backend"
     version: str = "0.1.0"
+    environment: Literal["development", "test", "production"] = "development"
     postgres_db: str = "curbo"
     postgres_user: str = "curbo_user"
     postgres_password: str = "curbo_password"
@@ -34,6 +35,25 @@ class Settings(BaseSettings):
     annotation_file: str = "data/annotations.json"
     # When None the SQLAlchemy layer is skipped entirely; the store uses JSON.
     database_url: str | None = None
+    database_required: bool = False
+    auth_required: bool = False
+    api_key: SecretStr | None = None
+    max_request_body_bytes: int = Field(default=1_000_000, ge=16_384, le=10_000_000)
+    mutation_rate_limit_per_minute: int = Field(default=60, ge=1, le=10_000)
+    report_retention_days: int = Field(default=30, ge=1, le=3650)
+    max_report_files: int = Field(default=1_000, ge=1, le=100_000)
+    trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "testserver"]
+    )
+    allow_sample_data: bool = True
+    required_layer_minimums: dict[str, int] = Field(
+        default_factory=lambda: {
+            "roads": 10_000,
+            "curb_ramps": 1_000,
+            "hydrants": 1_000,
+            "bike_lanes": 100,
+        }
+    )
     cors_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:5173",
@@ -50,6 +70,30 @@ class Settings(BaseSettings):
         # does not break pydantic-settings validation.
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_production_safety(self) -> "Settings":
+        """Refuse production startup when mandatory security controls are absent."""
+        if self.environment != "production":
+            return self
+
+        if not self.auth_required:
+            raise ValueError("AUTH_REQUIRED must be true in production")
+        if self.api_key is None or len(self.api_key.get_secret_value()) < 32:
+            raise ValueError("API_KEY must contain at least 32 characters in production")
+        if not self.database_required or self.resolved_database_url is None:
+            raise ValueError("DATABASE_REQUIRED and DATABASE_URL are required in production")
+        if not self.cors_origins:
+            raise ValueError("CORS_ORIGINS must contain the production frontend origin")
+        if any(origin == "*" or origin.startswith("http://") for origin in self.cors_origins):
+            raise ValueError("Production CORS origins must be explicit HTTPS origins")
+        if "*" in self.trusted_hosts:
+            raise ValueError("Production TRUSTED_HOSTS cannot contain a wildcard")
+        if self.allow_sample_data:
+            raise ValueError("ALLOW_SAMPLE_DATA must be false in production")
+        if self.postgres_password == "curbo_password":
+            raise ValueError("The default PostgreSQL password is forbidden in production")
+        return self
 
     @property
     def project_root(self) -> Path:

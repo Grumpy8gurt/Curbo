@@ -1,11 +1,55 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import tempfile
+import threading
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
+
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.models.annotation import Annotation
+from app.models.corridor_report import CorridorReport
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - CURBO production images are Linux based
+    fcntl = None
+
+
+_PATH_LOCKS: dict[str, threading.RLock] = {}
+_PATH_LOCKS_GUARD = threading.Lock()
+
+
+class ConcurrencyConflictError(Exception):
+    pass
+
+
+class InvalidTransitionError(Exception):
+    pass
+
+
+_ALLOWED_STATUS_TRANSITIONS = {
+    "pending": {"reviewed", "confirmed", "rejected"},
+    "reviewed": {"confirmed", "rejected"},
+    "confirmed": set(),
+    "rejected": set(),
+}
+
+
+def _shared_thread_lock(path: Path | None) -> threading.RLock:
+    key = str(path.resolve()) if path else "memory"
+    with _PATH_LOCKS_GUARD:
+        return _PATH_LOCKS.setdefault(key, threading.RLock())
 
 
 def _load_geojson(path: Path) -> dict[str, Any]:
@@ -70,31 +114,8 @@ def build_sample_collections(sample_data_dir: Path) -> dict[str, dict[str, Any]]
 
 
 def _default_annotations() -> list[dict[str, Any]]:
-    """
-    Seed annotations used when no annotation file exists yet.
-    These represent planner-entered examples from the Eugene downtown corridor
-    and are shown in the UI on first launch so the map is not empty.
-    """
-    return [
-        {
-            "id": "ann_001",
-            "annotation_type": "missing curb cut",
-            "description": "Northwest corner slope feels absent during field review.",
-            "status": "pending",
-            "source": "planner",
-            "geometry": {"type": "Point", "coordinates": [-123.0894, 44.0519]},
-            "created_at": datetime(2026, 7, 5, 15, 0, tzinfo=timezone.utc),
-        },
-        {
-            "id": "ann_002",
-            "annotation_type": "obstruction",
-            "description": "Temporary sign blocks ramp access near the curb return.",
-            "status": "pending",
-            "source": "planner",
-            "geometry": {"type": "Point", "coordinates": [-123.0874, 44.0493]},
-            "created_at": datetime(2026, 7, 5, 15, 10, tzinfo=timezone.utc),
-        },
-    ]
+    """New stores are empty; sample records belong in explicit test fixtures."""
+    return []
 
 
 @dataclass
@@ -107,25 +128,40 @@ class AppStore:
       to avoid the cost of deserialising the ~13 k-feature Eugene roads layer
       on every API request.  Routers validate outbound responses via
       response_model so the contract is still enforced at the boundary.
-    - Annotations are the only writable entity; they are also persisted to
-      a JSON file using an atomic write-then-rename pattern so partial writes
-      never corrupt the store.
-    - Counters track the numeric suffix of the last-issued ID for each entity
-      kind so that IDs remain sequential across restarts when the annotation
-      file is present.
+    - Annotations and report metadata use database transactions when a session
+      factory is configured. Local annotations otherwise use a locked atomic
+      JSON write so partial or concurrent writes do not corrupt the store.
+    - UUID-based IDs avoid process-local counters and remain safe across
+      restarts and independently running application instances.
     """
 
     roads: dict[str, Any]
     curb_ramps: dict[str, Any]
     hydrants: dict[str, Any]
     bike_lanes: dict[str, Any]
-    annotations: list[dict[str, Any]] = field(default_factory=_default_annotations)
+    annotations: list[dict[str, Any]] = field(default_factory=list)
     annotation_file: Path | None = None
     reports: list[dict[str, Any]] = field(default_factory=list)
-    # Counters are seeded from existing IDs at load time (see from_collections).
-    counters: dict[str, int] = field(
-        default_factory=lambda: {"annotation": 2, "report": 0}
-    )
+    session_factory: sessionmaker[Session] | None = None
+    _mutation_lock: threading.RLock = field(init=False, repr=False)
+    _roads_by_id: dict[str, dict[str, Any]] = field(init=False, repr=False)
+    _roads_etag: str = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._mutation_lock = _shared_thread_lock(self.annotation_file)
+        self._roads_by_id = {
+            feature.get("properties", {}).get("road_id"): feature
+            for feature in self.roads.get("features", [])
+            if feature.get("properties", {}).get("road_id")
+        }
+        digest = hashlib.sha256(
+            json.dumps(self.roads, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        self._roads_etag = f'"{digest}"'
+
+    @property
+    def roads_etag(self) -> str:
+        return self._roads_etag
 
     @classmethod
     def from_sample_dir(
@@ -139,24 +175,15 @@ class AppStore:
         cls,
         collections: dict[str, dict[str, Any]],
         annotation_file: Path | None = None,
+        session_factory: sessionmaker[Session] | None = None,
     ) -> "AppStore":
-        annotations = cls._load_annotations(annotation_file)
-        store = cls(
+        annotations = [] if session_factory is not None else cls._load_annotations(annotation_file)
+        return cls(
             **collections,
             annotations=annotations,
             annotation_file=annotation_file,
+            session_factory=session_factory,
         )
-        # Seed the annotation counter from the highest existing ID so that new
-        # annotations receive IDs that are strictly greater than any persisted one.
-        store.counters["annotation"] = max(
-            [
-                int(item["id"].split("_")[-1])
-                for item in annotations
-                if item.get("id", "").split("_")[-1].isdigit()
-            ],
-            default=0,
-        )
-        return store
 
     @staticmethod
     def _load_annotations(annotation_file: Path | None) -> list[dict[str, Any]]:
@@ -170,12 +197,13 @@ class AppStore:
         planner work.
         """
         if annotation_file is None or not annotation_file.exists():
-            return _default_annotations()
+            return []
         try:
             with annotation_file.open("r", encoding="utf-8") as handle:
                 items = json.load(handle)
             for item in items:
                 item["created_at"] = datetime.fromisoformat(item["created_at"])
+                item.setdefault("version", 1)
             return items
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ValueError(
@@ -183,7 +211,25 @@ class AppStore:
                 "restore or remove it before restarting CURBO."
             ) from exc
 
-    def _persist_annotations(self) -> None:
+    @contextmanager
+    def _file_lock(self):
+        """Serialize writers across threads and processes sharing this file."""
+        with self._mutation_lock:
+            if self.annotation_file is None:
+                yield
+                return
+            self.annotation_file.parent.mkdir(parents=True, exist_ok=True)
+            lock_path = self.annotation_file.with_name(f"{self.annotation_file.name}.lock")
+            with lock_path.open("a+", encoding="utf-8") as lock_file:
+                if fcntl is not None:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    if fcntl is not None:
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    def _persist_annotations(self, annotations: list[dict[str, Any]]) -> None:
         """
         Atomically write the annotation list to disk.
 
@@ -196,33 +242,52 @@ class AppStore:
         self.annotation_file.parent.mkdir(parents=True, exist_ok=True)
         serialized = [
             {**annotation, "created_at": annotation["created_at"].isoformat()}
-            for annotation in self.annotations
+            for annotation in annotations
         ]
-        temporary_path = self.annotation_file.with_suffix(".tmp")
-        with temporary_path.open("w", encoding="utf-8") as handle:
-            json.dump(serialized, handle, indent=2)
-        # os.replace semantics: atomic on POSIX, best-effort on Windows.
-        temporary_path.replace(self.annotation_file)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.annotation_file.parent,
+                prefix=f".{self.annotation_file.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                json.dump(serialized, handle, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.chmod(temporary_path, 0o600)
+            os.replace(temporary_path, self.annotation_file)
+        finally:
+            if temporary_path is not None and temporary_path.exists():
+                temporary_path.unlink()
 
     def next_id(self, kind: str) -> str:
-        """Increment the counter for `kind` and return a zero-padded ID string."""
-        self.counters[kind] += 1
+        """Return a collision-resistant identifier safe across workers and restarts."""
         prefixes = {
             "annotation": "ann",
             "report": "rep",
         }
-        return f"{prefixes[kind]}_{self.counters[kind]:03d}"
+        return f"{prefixes[kind]}_{uuid4().hex}"
 
     def get_road_feature(self, road_id: str) -> dict[str, Any] | None:
-        """Linear scan of the roads layer; acceptable for prototype scale (~13 k features)."""
-        for feature in self.roads.get("features", []):
-            if feature.get("properties", {}).get("road_id") == road_id:
-                return feature
-        return None
+        """Use the startup-built index rather than scanning every road."""
+        return self._roads_by_id.get(road_id)
 
     def list_annotations(self) -> list[dict[str, Any]]:
         """Return annotations sorted ascending by creation time."""
-        return sorted(self.annotations, key=lambda item: item["created_at"])
+        if self.session_factory is not None:
+            with self.session_factory() as session:
+                rows = session.scalars(
+                    select(Annotation).order_by(Annotation.created_at)
+                ).all()
+                return [self._database_annotation_to_dict(row) for row in rows]
+        with self._file_lock():
+            if self.annotation_file is not None:
+                self.annotations = self._load_annotations(self.annotation_file)
+            return sorted(deepcopy(self.annotations), key=lambda item: item["created_at"])
 
     def annotation_to_feature(self, annotation: dict[str, Any]) -> dict[str, Any]:
         """
@@ -241,33 +306,103 @@ class AppStore:
                 "status": annotation["status"],
                 "source": annotation["source"],
                 "created_at": annotation["created_at"].isoformat(),
+                "version": annotation.get("version", 1),
             },
         }
 
-    def create_annotation(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def create_annotation(
+        self, payload: dict[str, Any], *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
         """
         Create an annotation, assign an ID and default status, append it to the
         in-memory list, and flush to disk.  The caller is responsible for
         providing geometry, annotation_type, description, and source.
         """
-        annotation = {
-            "id": self.next_id("annotation"),
-            "status": "pending",
-            "created_at": datetime.now(timezone.utc),
-            **payload,
-        }
-        self.annotations.append(annotation)
-        self._persist_annotations()
-        return annotation
+        if self.session_factory is not None:
+            return self._create_database_annotation(
+                payload, idempotency_key=idempotency_key
+            )
+        with self._file_lock():
+            current = (
+                self._load_annotations(self.annotation_file)
+                if self.annotation_file is not None
+                else deepcopy(self.annotations)
+            )
+            if idempotency_key:
+                existing = next(
+                    (
+                        item
+                        for item in current
+                        if item.get("idempotency_key") == idempotency_key
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    return deepcopy(existing)
+            annotation = {
+                "id": self.next_id("annotation"),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc),
+                "idempotency_key": idempotency_key,
+                "version": 1,
+                **payload,
+            }
+            candidate = [*current, annotation]
+            self._persist_annotations(candidate)
+            self.annotations = candidate
+            return deepcopy(annotation)
 
-    def update_annotation(self, annotation_id: str, status: str) -> dict[str, Any] | None:
+    def update_annotation(
+        self, annotation_id: str, status: str, *, expected_version: int
+    ) -> dict[str, Any] | None:
         """Update the status of an existing annotation and persist.  Returns None if not found."""
-        for annotation in self.annotations:
-            if annotation["id"] == annotation_id:
-                annotation["status"] = status
-                self._persist_annotations()
-                return annotation
-        return None
+        if self.session_factory is not None:
+            with self.session_factory() as session:
+                annotation = session.get(Annotation, annotation_id)
+                if annotation is None:
+                    return None
+                self._validate_status_transition(annotation.status, status)
+                result = session.execute(
+                    update(Annotation)
+                    .where(
+                        Annotation.id == annotation_id,
+                        Annotation.version == expected_version,
+                    )
+                    .values(status=status, version=Annotation.version + 1)
+                )
+                if result.rowcount != 1:
+                    session.rollback()
+                    raise ConcurrencyConflictError
+                session.commit()
+                updated = session.get(Annotation, annotation_id)
+                assert updated is not None
+                return self._database_annotation_to_dict(updated)
+        with self._file_lock():
+            current = (
+                self._load_annotations(self.annotation_file)
+                if self.annotation_file is not None
+                else deepcopy(self.annotations)
+            )
+            candidate = deepcopy(current)
+            for annotation in candidate:
+                if annotation["id"] == annotation_id:
+                    current_version = annotation.get("version", 1)
+                    if current_version != expected_version:
+                        raise ConcurrencyConflictError
+                    self._validate_status_transition(annotation["status"], status)
+                    annotation["status"] = status
+                    annotation["version"] = current_version + 1
+                    self._persist_annotations(candidate)
+                    self.annotations = candidate
+                    return deepcopy(annotation)
+            return None
+
+    @staticmethod
+    def _validate_status_transition(current: str, requested: str) -> None:
+        if requested == current:
+            return
+        if requested not in _ALLOWED_STATUS_TRANSITIONS.get(current, set()):
+            raise InvalidTransitionError(f"Cannot change status from {current} to {requested}")
 
     def get_annotations_feature_collection(self) -> dict[str, Any]:
         """Return all annotations as a GeoJSON FeatureCollection sorted by creation time."""
@@ -281,11 +416,92 @@ class AppStore:
         """
         report = payload.copy()
         report.setdefault("id", self.next_id("report"))
+        if self.session_factory is not None:
+            with self.session_factory() as session:
+                row = CorridorReport(
+                    id=report["id"],
+                    road_id=report["road_id"],
+                    include_layers=report.get("include_layers", []),
+                    summary={"message": report.get("summary", "")},
+                    format=report.get("format", "html"),
+                    download_path=report["download_path"],
+                )
+                session.add(row)
+                session.commit()
+            return report
         self.reports.append(report)
         return report
 
     def get_report(self, report_id: str) -> dict[str, Any] | None:
+        if self.session_factory is not None:
+            with self.session_factory() as session:
+                row = session.get(CorridorReport, report_id)
+                if row is None:
+                    return None
+                return {
+                    "id": row.id,
+                    "road_id": row.road_id,
+                    "include_layers": row.include_layers,
+                    "summary": row.summary.get("message", ""),
+                    "format": row.format,
+                    "download_path": row.download_path,
+                }
         for report in self.reports:
             if report["id"] == report_id:
                 return report
         return None
+
+    @staticmethod
+    def _database_annotation_to_dict(annotation: Annotation) -> dict[str, Any]:
+        return {
+            "id": annotation.id,
+            "annotation_type": annotation.type,
+            "description": annotation.description,
+            "status": annotation.status,
+            "source": annotation.source,
+            "geometry": annotation.geometry,
+            "created_at": annotation.created_at,
+            "idempotency_key": annotation.idempotency_key,
+            "version": annotation.version,
+        }
+
+    def _create_database_annotation(
+        self, payload: dict[str, Any], *, idempotency_key: str | None
+    ) -> dict[str, Any]:
+        assert self.session_factory is not None
+        with self.session_factory() as session:
+            if idempotency_key:
+                existing = session.scalar(
+                    select(Annotation).where(
+                        Annotation.idempotency_key == idempotency_key
+                    )
+                )
+                if existing is not None:
+                    return self._database_annotation_to_dict(existing)
+
+            annotation = Annotation(
+                id=self.next_id("annotation"),
+                type=payload["annotation_type"],
+                description=payload["description"],
+                status="pending",
+                source=payload["source"],
+                geometry=payload["geometry"],
+                idempotency_key=idempotency_key,
+            )
+            session.add(annotation)
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                if not idempotency_key:
+                    raise
+                existing = session.scalar(
+                    select(Annotation).where(
+                        Annotation.idempotency_key == idempotency_key
+                    )
+                )
+                if existing is None:
+                    raise
+                return self._database_annotation_to_dict(existing)
+            session.refresh(annotation)
+            return self._database_annotation_to_dict(annotation)

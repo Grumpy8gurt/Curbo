@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from pydantic import AliasChoices, BaseModel, Field
+from typing import Literal
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class CorridorReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     road_id: str = Field(
         min_length=1,
         max_length=64,
@@ -13,10 +16,11 @@ class CorridorReportRequest(BaseModel):
         #   roadId      — camelCase used by the frontend
         validation_alias=AliasChoices("corridor_id", "road_id", "roadId"),
     )
-    format: str = "html"  # Only "html" is implemented; reserved for future PDF/CSV.
+    format: Literal["html"] = "html"
 
 
 class CorridorReportResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     reportId: str
     roadId: str
     downloadUrl: str  # Relative path — frontend prepends API_BASE_URL before opening.

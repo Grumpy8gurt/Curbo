@@ -34,6 +34,10 @@ def parse_bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
     values = (min_lng, min_lat, max_lng, max_lat)
     if not all(math.isfinite(value) for value in values):
         raise HTTPException(status_code=422, detail="bbox values must be finite")
+    if not (-180 <= min_lng <= 180 and -180 <= max_lng <= 180):
+        raise HTTPException(status_code=422, detail="bbox longitude must be between -180 and 180")
+    if not (-90 <= min_lat <= 90 and -90 <= max_lat <= 90):
+        raise HTTPException(status_code=422, detail="bbox latitude must be between -90 and 90")
     if min_lng > max_lng or min_lat > max_lat:
         raise HTTPException(status_code=422, detail="bbox minimums must not exceed maximums")
     return min_lng, min_lat, max_lng, max_lat
@@ -200,11 +204,177 @@ def _flatten_line_coordinates(geometry: dict[str, Any]) -> list[list[float]]:
     return coordinates
 
 
+def _line_parts(geometry: dict[str, Any]) -> list[list[list[float]]]:
+    """Return independent line parts without connecting MultiLineString gaps."""
+    coordinates = geometry.get("coordinates", [])
+    if geometry.get("type") == "MultiLineString":
+        return coordinates
+    if geometry.get("type") == "LineString":
+        return [coordinates]
+    return []
+
+
+def _project_meters(point: list[float], reference_latitude: float) -> tuple[float, float]:
+    radius = 6_371_000
+    return (
+        radius * math.radians(point[0]) * math.cos(math.radians(reference_latitude)),
+        radius * math.radians(point[1]),
+    )
+
+
+def _point_segment_distance_meters(
+    point: list[float], start: list[float], end: list[float], reference_latitude: float
+) -> float:
+    px, py = _project_meters(point, reference_latitude)
+    sx, sy = _project_meters(start, reference_latitude)
+    ex, ey = _project_meters(end, reference_latitude)
+    delta_x, delta_y = ex - sx, ey - sy
+    length_squared = delta_x * delta_x + delta_y * delta_y
+    if length_squared == 0:
+        return math.hypot(px - sx, py - sy)
+    parameter = max(
+        0.0,
+        min(1.0, ((px - sx) * delta_x + (py - sy) * delta_y) / length_squared),
+    )
+    nearest_x = sx + parameter * delta_x
+    nearest_y = sy + parameter * delta_y
+    return math.hypot(px - nearest_x, py - nearest_y)
+
+
+def _segments_intersect(
+    first_start: list[float],
+    first_end: list[float],
+    second_start: list[float],
+    second_end: list[float],
+) -> bool:
+    epsilon = 1e-12
+
+    def orientation(start, end, point):
+        return (end[0] - start[0]) * (point[1] - start[1]) - (
+            end[1] - start[1]
+        ) * (point[0] - start[0])
+
+    def on_segment(start, end, point):
+        return (
+            min(start[0], end[0]) - epsilon
+            <= point[0]
+            <= max(start[0], end[0]) + epsilon
+            and min(start[1], end[1]) - epsilon
+            <= point[1]
+            <= max(start[1], end[1]) + epsilon
+        )
+
+    first_side_a = orientation(first_start, first_end, second_start)
+    first_side_b = orientation(first_start, first_end, second_end)
+    second_side_a = orientation(second_start, second_end, first_start)
+    second_side_b = orientation(second_start, second_end, first_end)
+
+    if (
+        (first_side_a > epsilon and first_side_b < -epsilon)
+        or (first_side_a < -epsilon and first_side_b > epsilon)
+    ) and (
+        (second_side_a > epsilon and second_side_b < -epsilon)
+        or (second_side_a < -epsilon and second_side_b > epsilon)
+    ):
+        return True
+
+    return any(
+        abs(side) <= epsilon and on_segment(start, end, point)
+        for side, start, end, point in (
+            (first_side_a, first_start, first_end, second_start),
+            (first_side_b, first_start, first_end, second_end),
+            (second_side_a, second_start, second_end, first_start),
+            (second_side_b, second_start, second_end, first_end),
+        )
+    )
+
+
+def _segment_distance_meters(
+    first_start: list[float],
+    first_end: list[float],
+    second_start: list[float],
+    second_end: list[float],
+    reference_latitude: float,
+) -> float:
+    if _segments_intersect(first_start, first_end, second_start, second_end):
+        return 0.0
+    return min(
+        _point_segment_distance_meters(
+            first_start, second_start, second_end, reference_latitude
+        ),
+        _point_segment_distance_meters(
+            first_end, second_start, second_end, reference_latitude
+        ),
+        _point_segment_distance_meters(
+            second_start, first_start, first_end, reference_latitude
+        ),
+        _point_segment_distance_meters(
+            second_end, first_start, first_end, reference_latitude
+        ),
+    )
+
+
+def _geometry_is_near_lines(
+    geometry: dict[str, Any],
+    corridor_lines: list[list[list[float]]],
+    buffer_meters: int,
+    reference_latitude: float,
+) -> bool:
+    geometry_type = geometry.get("type")
+    if geometry_type == "Point":
+        point = geometry.get("coordinates", [])
+        return any(
+            _point_segment_distance_meters(point, line[index], line[index + 1], reference_latitude)
+            <= buffer_meters
+            for line in corridor_lines
+            for index in range(len(line) - 1)
+        )
+
+    feature_lines = _line_parts(geometry)
+    return any(
+        _segment_distance_meters(
+            feature_line[feature_index],
+            feature_line[feature_index + 1],
+            corridor_line[corridor_index],
+            corridor_line[corridor_index + 1],
+            reference_latitude,
+        )
+        <= buffer_meters
+        for feature_line in feature_lines
+        for feature_index in range(len(feature_line) - 1)
+        for corridor_line in corridor_lines
+        for corridor_index in range(len(corridor_line) - 1)
+    )
+
+
+def _filter_near_features(
+    feature_collection: dict[str, Any],
+    corridor_lines: list[list[list[float]]],
+    bbox: tuple[float, float, float, float],
+    buffer_meters: int,
+) -> list[dict[str, Any]]:
+    candidates = filter_feature_collection(feature_collection, bbox).get("features", [])
+    reference_latitude = (bbox[1] + bbox[3]) / 2
+    return [
+        feature
+        for feature in candidates
+        if _geometry_is_near_lines(
+            feature.get("geometry", {}),
+            corridor_lines,
+            buffer_meters,
+            reference_latitude,
+        )
+    ]
+
+
 def _count_near_features(
-    feature_collection: dict[str, Any], bbox: tuple[float, float, float, float]
+    feature_collection: dict[str, Any],
+    corridor_lines: list[list[list[float]]],
+    bbox: tuple[float, float, float, float],
+    buffer_meters: int,
 ) -> int:
-    """Count the number of features from a collection that fall within the bbox."""
-    return len(filter_feature_collection(feature_collection, bbox).get("features", []))
+    """Count features within a true metric distance of the road line."""
+    return len(_filter_near_features(feature_collection, corridor_lines, bbox, buffer_meters))
 
 
 def _count_annotation_type(features: list[dict[str, Any]], annotation_type: str) -> int:
@@ -225,7 +395,7 @@ def _build_review_assessment(
     bike_lanes: int,
     annotations_needing_review: int,
 ) -> tuple[str, list[str]]:
-    """Return the documented, explainable Sprint 4 review-attention signal.
+    """Return the documented, explainable review-attention signal.
 
     This prototype heuristic highlights corridors for human attention.  It is
     deliberately separate from engineering safety analysis or project ranking.
@@ -276,9 +446,8 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
 
     Algorithm:
       1. Look up the road feature by ID in the store.
-      2. Flatten its coordinates and build an expanded bbox with the requested
-         buffer distance.
-      3. Count features from each layer that fall within the bbox.
+      2. Build an expanded bbox for inexpensive candidate filtering.
+      3. Measure each candidate's distance to the actual road segments.
       4. Compute the existing preliminary feasibility signal:
            base 4  +  up to 2 for existing bike lanes
                    -  missing curb-cut annotations
@@ -287,8 +456,8 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
          Low/Medium/High review-attention signal.
 
     Limitations at prototype scale:
-    - Does not use actual road geometry for proximity; the bbox is a rectangle
-      aligned to the road extent, not a true buffer polygon.
+    - Uses an in-process metric approximation after bbox prefiltering rather
+      than an indexed PostGIS query, so work still grows with layer size.
     - Bus stops remain 0 because no transit-stop source is cached.
     - Parking/loading conflicts come from reviewer annotations, not an
       authoritative parking inventory.
@@ -298,18 +467,26 @@ def analyze_corridor(store, road_id: str, buffer_meters: int) -> CorridorAnalysi
         raise HTTPException(status_code=404, detail=f"Road '{road_id}' was not found")
 
     road_properties = road_feature["properties"]
+    road_lines = _line_parts(road_feature["geometry"])
     road_coordinates = _flatten_line_coordinates(road_feature["geometry"])
     corridor_bbox = _expanded_bbox(road_coordinates, buffer_meters)
 
-    known_curb_ramps = _count_near_features(store.curb_ramps, corridor_bbox)
-    hydrants = _count_near_features(store.hydrants, corridor_bbox)
-    bike_lanes = _count_near_features(store.bike_lanes, corridor_bbox)
-
-    annotation_features = filter_feature_collection(
-        store.get_annotations_feature_collection(), corridor_bbox
+    known_curb_ramps = _count_near_features(
+        store.curb_ramps, road_lines, corridor_bbox, buffer_meters
+    )
+    hydrants = _count_near_features(
+        store.hydrants, road_lines, corridor_bbox, buffer_meters
+    )
+    bike_lanes = _count_near_features(
+        store.bike_lanes, road_lines, corridor_bbox, buffer_meters
     )
 
-    historical_annotations = annotation_features["features"]
+    historical_annotations = _filter_near_features(
+        store.get_annotations_feature_collection(),
+        road_lines,
+        corridor_bbox,
+        buffer_meters,
+    )
     active_annotations = [
         feature
         for feature in historical_annotations

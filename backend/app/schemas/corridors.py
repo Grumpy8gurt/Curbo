@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class CorridorAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     road_id: str = Field(
         min_length=1,
         max_length=64,
@@ -15,12 +16,17 @@ class CorridorAnalysisRequest(BaseModel):
     )
     # Buffer distance in metres around the road geometry used to count nearby
     # features.  Defaults to 30 m (roughly one lane width on each side).
-    buffer_meters: int = Field(default=30, ge=0, le=500)
+    buffer_meters: int = Field(
+        default=30,
+        ge=0,
+        le=500,
+        validation_alias=AliasChoices("bufferMeters", "buffer_meters"),
+    )
 
 
 class CorridorAnalysisResponse(BaseModel):
     """
-    Corridor planning summary returned by POST /api/corridors/analyze.
+    Corridor planning summary returned by POST /api/v1/corridors/analyze.
 
     Fields use camelCase to match the frontend TypeScript type (CorridorSummary)
     without requiring an alias on the response side.

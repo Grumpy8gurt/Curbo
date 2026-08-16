@@ -1,8 +1,29 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from html import escape
+import os
 from pathlib import Path
+import tempfile
 from typing import Any
+
+
+def prune_reports(report_dir: Path, *, retention_days: int, max_files: int) -> int:
+    """Apply the configured TTL/count policy to generated CURBO report files."""
+    if not report_dir.exists():
+        return 0
+    files = sorted(
+        report_dir.glob("rep_[0-9a-f][0-9a-f]*.html"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    cutoff = datetime.now(timezone.utc).timestamp() - retention_days * 86_400
+    removed = 0
+    for index, path in enumerate(files):
+        if index >= max_files or path.stat().st_mtime < cutoff:
+            path.unlink()
+            removed += 1
+    return removed
 
 
 def generate_corridor_report(
@@ -113,5 +134,23 @@ def generate_corridor_report(
   </body>
 </html>
 """
-    report_path.write_text(html, encoding="utf-8")
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=report_dir,
+            prefix=f".{report_id}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(html)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary_path, 0o600)
+        os.replace(temporary_path, report_path)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
     return report_path

@@ -55,7 +55,7 @@ class EugeneDataService:
         Load all four layers.  The returned dict key names match AppStore field
         names exactly, so `AppStore.from_collections(**load_all())` works.
         Note: sidewalk_ramps is stored under "curb_ramps" to match the frontend
-        layer ID and the /api/layers/curb-ramps alias endpoint.
+        layer ID and the /api/v1/layers/curb-ramps alias endpoint.
         """
         return {
             "roads": self._load_layer(
