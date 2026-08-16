@@ -1,76 +1,119 @@
 # CURBO Manual Verification
 
-This document records the important checks performed by a person using the real application. Automated tests cover exact rules and edge cases; manual checks confirm that the complete browser workflow looks and behaves correctly.
+This document separates checks performed against a running application from repeatable automated checks. Manual verification answers “does the assembled system behave correctly?” Automated verification protects exact rules and regressions.
 
-## Sprint 4 result
+## Final verification baseline
 
-Sprint 4 completed the annotation-review workflow. A reviewer can create a note, change its status, restart the backend, and still see the saved decision. Corridor evidence and reports also reflect the current review status.
+**Final verification dates:** August 15–16, 2026
 
-The manual checks used temporary annotation and report files, so normal repository data was not changed.
+**Final branch:** `sprint-5-final`
+**Environment:** macOS, Docker Desktop, Python 3.13 virtual environment, Node 22 toolchain
 
-### Manual checks
+## Sprint 5 manual service verification
 
-| Check | What happened | Result |
-|---|---|---|
-| Load the application | The browser displayed 13,520 roads and 400 features in each of the ramp, hydrant, and bicycle layers. | Pass |
-| Create an annotation | A new bike-gap note was saved, selected on the map, and included in the selected corridor. | Pass |
-| Reject an annotation | The rejected note stayed in history but stopped increasing active concern counts. | Pass |
-| Confirm an annotation | A confirmed parking conflict remained active but no longer counted as needing review. | Pass |
-| Restart the backend | The rejected and confirmed statuses were still present after a new backend process started. | Pass |
-| Generate a report | The HTML report downloaded and contained readable metrics, review signals, notes, and limitations. | Pass |
-| Check mobile layout | At 390×844, the page had no horizontal overflow and the map legend stayed inside the map. | Pass |
-| Check visible language | The interface used permanent CURBO planning language rather than development or release terminology. | Pass |
+The final frontend and backend images were built and started together with Docker Compose. The test containers were stopped after verification; their named data volumes were preserved.
 
-### Automated checks
+| Manual check | Expected behavior | Observed result | Status |
+| --- | --- | --- | --- |
+| Start from Compose | Frontend waits for a healthy backend and both services become healthy. | `curbo-backend-1` and `curbo-frontend-1` both reported healthy. | Pass |
+| Direct backend health | `/api/health` returns the backend service status. | HTTP 200 with `{"status":"ok","service":"curbo-backend"}`. | Pass |
+| Frontend health | `/healthz` confirms that Nginx is serving. | HTTP 200 with `ok`. | Pass |
+| Same-origin API proxy | The frontend container forwards `/api/health` to FastAPI. | HTTP 200 with the backend health payload. | Pass |
+| Frontend document | The production server returns the CURBO application. | HTTP 200 and `<title>CURBO`. | Pass |
+| Real annotation collection | A new local store starts empty instead of inventing reviewer data. | `/api/v1/annotations` returned zero features. | Pass |
+| Invalid coordinate | Impossible longitude is rejected without creating a record. | Longitude `999` returned HTTP 422. | Pass |
+| Forged source | A client cannot claim to be City of Eugene GIS. | A request containing `source` returned HTTP 422. | Pass |
+| Unsupported report | The API does not say it created a PDF when it only creates HTML. | `format: "pdf"` returned HTTP 422. | Pass |
+| Browser security headers | Static responses include CSP, framing, MIME, referrer, and permissions protections. | All configured headers were present. | Pass |
+| Large road response | Roads support caching and compression. | Response contained an ETag, cache policy, `Vary`, and gzip encoding. | Pass |
+| Shutdown | Normal shutdown removes the temporary service containers without deleting named data volumes. | `docker compose down` completed successfully. | Pass |
 
-Run all existing checks from the repository root:
+Representative commands:
 
 ```bash
-./scripts/verify_sprint4.sh
+docker compose up -d --build
+docker compose ps
+curl http://127.0.0.1:8000/api/health
+curl http://127.0.0.1:5173/api/health
+curl -I http://127.0.0.1:5173/
+docker compose down
 ```
 
-Verified results:
+## Recorded browser workflow
 
-- 27 backend tests passed.
-- 13 frontend tests passed in 7 files.
-- The frontend production build passed.
-- `npm audit` reported no known vulnerabilities.
-- All 7 GeoJSON files passed validation.
-- Docker Compose configuration was valid.
+The connected browser walkthrough completed during Sprint 4 remains valid for the review workflow retained in Sprint 5:
 
-### Important problems found and fixed
+| Browser check | Observed result | Status |
+| --- | --- | --- |
+| Load application layers | The browser displayed 13,520 roads and 400 features in each bounded ramp, hydrant, and bicycle collection. | Pass |
+| Create annotation | A bike-gap note was saved, selected on the map, and included in the chosen corridor. | Pass |
+| Reject annotation | The note remained in history but stopped increasing active concern counts. | Pass |
+| Confirm annotation | A confirmed parking conflict remained active and no longer counted as needing review. | Pass |
+| Restart backend | Rejected and confirmed statuses remained after a new backend process loaded the store. | Pass |
+| Generate report | The downloaded HTML contained readable metrics, signals, notes, and limitations. | Pass |
+| Mobile layout | At 390×844, there was no horizontal overflow and the legend remained inside the map. | Pass |
+| Product language | The visible interface described a planning tool rather than internal sprint or development terminology. | Pass |
 
-| Problem | Fix | How it was checked |
-|---|---|---|
-| Users could not change annotation status from the map. | Added the status selector and PATCH request. | Component, API, persistence, and browser checks passed. |
-| Explicit GeoJSON could contain impossible coordinates. | Applied one coordinate validator to points and every line position. | Longitude or latitude `999` now returns HTTP 422. |
-| Rejected notes still affected active corridor concerns. | Kept them in history but excluded them from active counts. | Automated status tests and the browser workflow passed. |
-| Corridor results and report links could become stale. | Refreshed the selected corridor after changes and ignored older responses. | API/component tests and browser status messages passed. |
-| Ramp measurements were being discarded or misread. | Preserved aggregate and left/right measurements and hid invalid width sentinels. | Backend normalization and frontend boundary tests passed. |
-| Reports displayed raw Python data. | Replaced it with labeled, escaped HTML sections. | Report tests and a real downloaded report passed. |
-| The frontend had no automated test runner. | Added Vitest, jsdom, and Testing Library. | All 13 frontend tests passed. |
-| The mobile legend could overlap the page. | Kept the map as the legend's positioned container. | The 390×844 follow-up check passed. |
+A new automated visual-browser session was unavailable on August 16. The current Sprint 5 service checks above were therefore performed directly against the built containers, and the existing visual evidence is identified separately instead of being presented as a new walkthrough.
 
-### Remaining limits
+## Automated verification
 
-- Annotations are stored in one JSON file. This is suitable for one user and one backend process, not concurrent production use.
-- There is no authentication or authorization.
-- Ramp measurements are screening information, not accessibility-compliance findings.
-- Corridor review attention is a simple, documented heuristic. It is not a safety or project-priority score.
-- The cached data is not fully current or complete: roads are a complete dated snapshot, while the other layers are 400-feature extracts.
-- Delete and geometry editing are not included.
-- The frontend build still reports a non-blocking large MapLibre bundle warning.
+Run the complete final suite from the repository root:
 
-## Sprint 3 summary
+```bash
+./scripts/verify_sprint5.sh
+```
 
-Sprint 3 established the base that Sprint 4 improved:
+Final results:
 
-- removed the old ML/image-detection workflow;
-- loaded cached Eugene GIS data without requiring a live City service;
-- expanded the road cache to all 13,520 segments and added road labels;
-- added point and line annotations with JSON persistence;
-- added corridor summaries and HTML reports;
-- handled `MultiLineString` features and proper bounding-box intersections; and
-- kept PostGIS optional rather than making it a startup requirement.
+- **45 backend tests passed**.
+- **15 frontend tests passed** in 7 test files.
+- Python dependency consistency passed.
+- Python production dependency audit reported no known vulnerabilities.
+- Frontend TypeScript and production build passed.
+- Bundle budgets passed for the initial and lazy map chunks.
+- npm audit reported no known vulnerabilities.
+- **7 of 7 GeoJSON files passed** validation.
+- Alembic upgrade, downgrade, and re-upgrade passed.
+- Docker Compose configuration passed.
+- Backend and frontend container image builds passed.
 
-Sprint 3 verification included backend tests, a frontend production build, dependency audit, GeoJSON validation, cache-only refresh checks, Compose validation, and connected browser use. Its remaining limitations—single-user JSON persistence, dated cached data, optional database scaffolding, and incomplete production deployment—still apply.
+## What was manual and what was automated
+
+| Behavior | Manual evidence | Automated evidence | Why |
+| --- | --- | --- | --- |
+| Services assemble correctly | Real Compose startup, proxy, headers, and shutdown. | Compose config and image builds in CI. | Container wiring is easiest to trust when both structural and live checks agree. |
+| Annotation create/update | Browser create/reject/confirm and restart workflow. | API, persistence, lifecycle, idempotency, concurrency, and stale-version tests. | A human checks the complete interaction; tests cover many exact failure paths quickly. |
+| Invalid input | Live 422 checks for coordinates, source, and report format. | Boundary, extra-field, geometry-size, and lifecycle tests. | Live checks confirm routing and middleware; tests protect all variations. |
+| Frontend failure behavior | Visible status and error behavior were checked in the existing browser workflow. | API-client tests verify timeout, unreachable API, malformed payload, and no automatic fallback. | Network failures are repeatable and less ambiguous in automated tests. |
+| Report quality | A human read a downloaded report. | Escaping, durable lookup, restart, format, and retention tests. | Readability needs human judgment; security and persistence rules need exact assertions. |
+| Layout/accessibility | Mobile layout and keyboard alternatives were reviewed. | Component language and interaction tests. | Visual and assistive behavior cannot be completely proven by unit tests. |
+
+## Failure investigations
+
+### Frontend container could not start with reduced privileges
+
+The first hardened Compose run failed because Nginx attempted to change ownership of `/var/cache/nginx/client_temp` after all Linux capabilities had been removed. Weakening the container was rejected. The image was changed to run directly as the unprivileged `nginx` user, use a non-root main configuration, and mount temporary directories with the correct user ownership. The rebuilt container became healthy, served the frontend, proxied the API, and retained all security restrictions.
+
+### Collinear spatial segments were treated as intersecting
+
+During final review, the segment-intersection helper was found to return true for separate collinear segments. The calculation was revised to require a point to lie on the other segment for collinear contact. A regression test now verifies that separated collinear lines have a positive distance greater than 100 meters in the selected example.
+
+### Earlier false-saved frontend behavior
+
+The audit showed that network failure could trigger browser-memory fallback and still display “saved.” Sprint 5 made mock mode explicit and removed automatic fallback from real requests. Automated API-client tests would now fail if an unreachable API again produced a successful mutation result.
+
+## Final repository checklist
+
+| Question | Answer | Evidence |
+| --- | --- | --- |
+| Does the README accurately describe the project? | Yes | Start, test, architecture, scope, and risk sections match the final implementation. |
+| Can another developer run the project using the README? | Yes | Docker and direct VS Code instructions are provided; live Compose startup passed. |
+| Does the documentation match the implementation? | Yes | Required documentation, API contract, data model, operations, audit, and remediation records were reconciled for Sprint 5. |
+| Is manual verification documented? | Yes | Current container/API evidence and the retained browser workflow are recorded above. |
+| Is AI assistance and engineering judgment documented? | Yes | See `docs/ai-implementation-review.md`. |
+| Does Git history show meaningful progress? | Yes | Sprint branches and focused implementation, quality, and documentation commits are preserved. |
+| Is Sprint 5 merged into main? | Yes | `sprint-5-final` is preserved and merged into `main`. |
+| Is the repository ready to share with an engineer? | Yes | Structure, setup, tests, architecture, risks, and next steps are documented. |
+
+“Ready to share” means professional course-project handoff. It does not override the production launch blockers listed in `docs/production-remediation-status.md`.

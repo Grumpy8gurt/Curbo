@@ -1,111 +1,252 @@
-# CURBO Architecture Overview
+# CURBO Architecture
 
-## Sprint 4 Evolution
+## Overview
 
-Sprint 4 keeps the existing React, FastAPI, and atomic JSON persistence
-boundaries. It completes the frontend path to the existing annotation PATCH
-endpoint, makes corridor evidence status-aware, extends Eugene sidewalk-ramp
-normalization so published measurements reach screening-only inspection
-prompts, and replaces raw-dictionary reports with readable HTML. No new service
-or database responsibility was introduced.
+CURBO is a two-service web application:
 
-## Sprint 3 Evolution
+- a React frontend displays the map and reviewer workflow;
+- a FastAPI backend validates requests, serves GIS layers, performs corridor analysis, persists reviewer work, and creates reports.
 
-Sprint 3 evolves the existing React/MapLibre frontend, FastAPI routes, sample GeoJSON layers, annotations, corridor summaries, and HTML reports. It replaces the mock-first layer path with normalized, cached City of Eugene GIS data and removes the active ML and image-upload architecture.
-
-## Runtime Architecture
+Cached civic data is read from GeoJSON. Writable annotation and report metadata use PostgreSQL when configured. A locked JSON annotation file is retained for simple local development.
 
 ```text
-City of Eugene ArcGIS query URLs (optional refresh)
-  -> scripts/fetch_eugene_data.py
-  -> data/eugene/*.geojson (committed offline cache)
-  -> EugeneDataService normalization
-  -> FastAPI /api/layers/* and corridor analysis
-  -> React + TypeScript + MapLibre dashboard
-
-Frontend API failure
-  -> compact local TypeScript fallback data
-
-POST /api/annotations
-  -> AppStore
-  -> backend/data/annotations.json
-
-PATCH /api/annotations/{annotation_id}
-  -> AppStore status update
-  -> backend/data/annotations.json
-  -> re-analyze selected corridor
-  -> invalidate immutable report link
-
-POST /api/corridors/analyze
-  -> cached infrastructure counts
-  -> nearby annotation history
-  -> active concerns excluding rejected notes
-  -> explainable review attention + limitation
-
-POST /api/reports/corridor
-  -> fresh corridor analysis
-  -> escaped labeled HTML metrics, signals, notes, and limitations
-
-Eugene sidewalk-ramp dimensions
-  -> EugeneDataService normalization
-  -> curb-ramp Feature properties
-  -> field-review reference helper
-  -> selected-feature popup with screening disclaimer
+Browser
+  |
+  | HTTP /api/v1
+  v
+Nginx frontend container
+  |-- serves built React files
+  +-- proxies /api to FastAPI
+                    |
+                    +-- cached Eugene GeoJSON (read-only runtime layers)
+                    +-- PostgreSQL (production annotations/report metadata)
+                    +-- locked JSON (local annotation fallback)
+                    +-- retained HTML report files
 ```
 
-PostgreSQL/PostGIS remains available through the optional Docker `database` profile. SQLAlchemy initializes only when `DATABASE_URL` is explicitly configured; the current prototype does not require a database or import the Eugene cache into PostGIS.
+## Main software
 
-## Frontend Responsibilities
+| Area | Software | Responsibility |
+| --- | --- | --- |
+| Browser UI | React and TypeScript | Application state, forms, panels, review workflow, and error display. |
+| Map | MapLibre GL | Roads, point features, line features, selections, and drawing interactions. |
+| Frontend tooling | Vite, Vitest, Testing Library | Development server, production build, component/API tests, and code splitting. |
+| API | FastAPI and Pydantic | Routing, validation, OpenAPI, dependency injection, and response models. |
+| Persistence | SQLAlchemy and Alembic | Database transactions, models, schema migrations, and revision checks. |
+| Production database | PostgreSQL | Durable annotation and report metadata storage. PostGIS is available as the container base but GIS layers are not yet imported into spatial tables. |
+| Local data | GeoJSON and JSON | Cached Eugene GIS layers and local-development annotations. |
+| Web serving | Nginx | Static frontend assets, same-origin API proxy, request-size limit, and browser security headers. |
+| Packaging | Docker Compose | Repeatable frontend/backend startup and an optional database profile. |
+| Quality | pytest, npm audit, pip-audit, GitHub Actions | Regression, dependency, migration, build, data, and container checks. |
 
-- Center the planning map on Eugene, Oregon.
-- Render roads, line-following street names, sidewalk ramps, fire hydrants, bike facilities, and annotations.
-- Show feature counts and a clear unavailable state for empty layers.
-- Use backend APIs by default and compact local fallbacks only when the API cannot be reached; surface HTTP errors in the UI.
-- Support point and line annotation creation, persistent status review, and corridor selection without ML-oriented UI.
-- Display aggregate and left/right curb-ramp width, grade, and cross-slope
-  values with source units when available; omit nonpositive width sentinels.
-- Compare published dimensions with documented field-review references without
-  presenting a compliance result.
-- Re-analyze the selected corridor after annotation mutations, discard
-  out-of-order results, invalidate stale report links, and announce outcomes.
-- Keep API-connected and offline fallback review behavior synchronized.
+## Repository boundaries
 
-## Backend Responsibilities
+### `frontend/`
 
-- Serve stable, validated GeoJSON FeatureCollections under `/api`.
-- Keep `/api/layers/curb-ramps` as an alias for `/api/layers/sidewalk-ramps`.
-- Normalize source-specific Eugene fields into frontend-facing properties.
-- Filter layers by optional bounding box and calculate lightweight,
-  status-aware corridor metrics while retaining rejected-note history.
-- Persist annotation creation and status updates and generate simple HTML corridor reports.
-- Reject explicit GeoJSON positions outside valid longitude/latitude ranges.
-- Return explainable review signals and a data-limitation statement with every
-  corridor response; never claim safety ranking or accessibility compliance.
+The frontend owns presentation and browser interaction. It:
 
-## Data Layer Responsibilities
+- loads runtime data through typed API modules;
+- validates important server response shapes at runtime;
+- displays explicit loading, unavailable, error, and mock states;
+- renders infrastructure and annotations in MapLibre;
+- searches roads without creating 13,520 DOM options;
+- creates point or line annotation requests;
+- includes the current annotation version in status changes;
+- refreshes corridor evidence after confirmed writes;
+- invalidates stale report links; and
+- lazy-loads the large map bundle.
 
-- `data/eugene/` is the normal runtime source. The road cache contains the complete service snapshot; the other infrastructure layers remain bounded demonstration extracts.
-- `data/sample/` is retained as a compact backend fallback from the earlier prototype.
-- `scripts/fetch_eugene_data.py` performs an optional, API-key-free cache refresh from configured URLs.
-- Selective refreshes such as `--layer roads` avoid replacing unrelated cached layers.
-- `scripts/validate_geojson.py` validates both Eugene and sample datasets.
-- The application never requires a live external GIS service at startup.
-- Street labels use a locally cached MapLibre glyph range so they remain available in the offline demo.
+The frontend never decides that a network failure is a successful save. Mock data is used only when `VITE_USE_MOCK_API=true`, and the interface labels that mode.
 
-## Persistence Choice
+### `backend/app/routers/`
 
-Sprint 3 uses an atomic JSON-file write for user annotations at `backend/data/annotations.json`. This is intentionally lightweight, easy to inspect, and sufficient for a single-user prototype. Docker mounts named volumes for annotations and generated HTML reports. PostgreSQL/PostGIS remains a future migration path rather than a Sprint 3 requirement.
+Routers translate HTTP requests and responses:
 
-## Removed ML Responsibility
+- `health.py`: public health, liveness, and readiness probes;
+- `layers.py`: cached GeoJSON layers, optional bounding boxes, road ETags, and caching;
+- `annotations.py`: list, create, and status update workflows;
+- `corridors.py`: selected-road analysis; and
+- `reports.py`: HTML report creation and safe download.
 
-The ML service, image-upload path, detection endpoints, model dependencies, map layer, and review UI are not part of the active architecture. This is a deliberate scope decision: Sprint 3 focuses on civic GIS integration and clearer frontend/backend boundaries.
+The canonical data prefix is `/api/v1`. Temporary legacy `/api` aliases are hidden from OpenAPI and include deprecation headers. Health probes remain under `/api`.
 
-## Remaining Architectural Questions
+### `backend/app/schemas/`
 
-- Whether Eugene layers should eventually be imported into PostGIS for indexed spatial queries.
-- Whether annotation persistence should move from JSON to PostgreSQL for concurrent users.
-- Which public GIS service URLs and refresh cadence should be treated as production sources.
-- Whether a hosted basemap and server-side map tiles are needed for larger datasets.
-- How authentication, data provenance, and dataset licensing should be handled before deployment.
-- How an official crash/speed/volume/exposure data pipeline should be governed
-  before any safety or prioritization model is considered.
+Pydantic schemas enforce the API contract. They validate:
+
+- known annotation and lifecycle values;
+- descriptions and extra fields;
+- finite longitude and latitude ranges;
+- Point and LineString shape;
+- a maximum of 1,000 line positions;
+- ordered and in-range bounding boxes;
+- expected annotation versions; and
+- HTML-only reports.
+
+### `backend/app/services/`
+
+- `eugene_data_service.py` loads and normalizes source-specific GIS properties.
+- `app_store.py` provides indexed road lookup, annotation/report persistence, idempotency, and optimistic version rules.
+- `spatial_queries.py` performs bounding-box prefiltering followed by point-to-segment and segment-to-segment metric distance checks.
+- `report_generator.py` renders escaped HTML and prunes expired/excess report files.
+
+### `backend/app/models/` and `backend/migrations/`
+
+SQLAlchemy models describe annotations and report metadata. The migration creates:
+
+- status and format constraints;
+- useful type, status, road, and creation-time indexes;
+- unique idempotency keys;
+- optimistic version fields; and
+- durable report download metadata.
+
+Production never creates tables during web-server startup. Alembic must apply the expected revision first, and startup rejects a missing or stale revision.
+
+### `data/`
+
+- `data/eugene/` contains the normal offline cache.
+- `data/sample/` contains small, obvious development fallbacks.
+
+The application does not call live City services during normal startup. Data refresh is a separate script with HTTPS source allowlisting, size limits, minimum counts, validation, provenance metadata, temporary files, filesystem synchronization, and atomic replacement.
+
+## Request flow
+
+### Read a layer
+
+```text
+React API module
+  -> GET /api/v1/layers/roads
+  -> authentication dependency when enabled
+  -> road collection in AppStore
+  -> optional bbox filtering
+  -> ETag/cache response
+  -> GZip middleware for large response
+  -> runtime frontend validation
+  -> MapLibre source
+```
+
+### Create an annotation
+
+```text
+Annotation form
+  -> POST /api/v1/annotations + Idempotency-Key
+  -> body/rate/authentication checks
+  -> Pydantic geometry and field validation
+  -> PostgreSQL transaction OR locked local-file update
+  -> server UUID, source, timestamp, and version
+  -> confirmed response
+  -> frontend shows saved state and refreshes corridor
+```
+
+If validation, authorization, persistence, or the network fails, the frontend shows an error and does not insert a browser-only saved record.
+
+### Update annotation status
+
+```text
+Selected annotation + expectedVersion
+  -> PATCH /api/v1/annotations/{id}
+  -> lifecycle rule check
+  -> compare current version
+  -> update status and increment version in one transaction
+  -> HTTP 409 for stale version or invalid transition
+  -> refresh corridor only after success
+```
+
+### Generate a report
+
+```text
+Selected road
+  -> fresh corridor analysis
+  -> escaped HTML report written atomically
+  -> database/file metadata with UUID
+  -> retention pruning
+  -> safe report-specific download route
+```
+
+## Persistence design
+
+### PostgreSQL path
+
+When `DATABASE_URL` is configured, annotation and report metadata operations use short SQLAlchemy sessions and commit or roll back as a unit. UUID-based IDs prevent cross-process counter collisions. Unique idempotency keys make retries safe. Version comparisons prevent one reviewer from silently overwriting a newer status.
+
+Production requires this path and the exact Alembic revision.
+
+### Local JSON path
+
+When no database is configured, annotations use an inspectable JSON file. The store:
+
+1. acquires a shared thread lock;
+2. acquires an operating-system lock for the target file;
+3. reloads the latest stored records;
+4. applies the candidate change to a copy;
+5. writes a unique temporary file;
+6. flushes and synchronizes it;
+7. atomically replaces the prior file; and
+8. updates memory only after persistence succeeds.
+
+This supports a safe local demo but is not the intended high-scale production data store.
+
+## Security boundary
+
+The backend provides:
+
+- production fail-closed configuration;
+- constant-time API-key comparison;
+- trusted-host and explicit CORS configuration;
+- body and mutation limits;
+- server-owned annotation source values;
+- safe report paths;
+- request IDs and structured logs;
+- API security headers; and
+- dependency and container checks.
+
+The frontend Nginx container provides a same-origin proxy, a 1 MB request limit, CSP, framing protection, MIME protection, referrer policy, and permissions policy.
+
+The current API key represents one deployment identity. It does not provide individual users, organizations, roles, tenant isolation, or record-level permissions. Those require an identity-aware HTTPS gateway and backend authorization before production use.
+
+## Container and deployment design
+
+- Backend and frontend images use digest-pinned bases.
+- Application processes run as non-root users.
+- Compose filesystems are read-only except named data volumes and limited temporary filesystems.
+- Linux capabilities are dropped and privilege escalation is disabled.
+- Host ports bind only to loopback for local development.
+- Frontend waits for backend readiness.
+- PostgreSQL has no host port and is enabled only through the `database` profile.
+
+GitHub Actions installs from lock files and runs backend/frontend tests, dependency audits, a frontend production build, bundle checks, a migration round trip, GeoJSON validation, Compose validation, and both container builds.
+
+## Important design decisions
+
+### Separate frontend and backend processes
+
+React/Vite and FastAPI have different runtimes and development reloaders. Keeping them separate makes each responsibility clear and allows the same API to serve other clients. Two terminals are required for direct development because both long-running programs must remain active.
+
+### Cached data instead of startup network calls
+
+The application stays demonstrable when the City service is unavailable, and a refresh cannot unexpectedly change runtime data. The tradeoff is that freshness must be operated and documented.
+
+### Explicit mock mode
+
+Automatic fallback hid outages and could lose reviewer work. Sprint 5 keeps mock data useful for demonstrations but makes it an intentional configuration with visible UI labeling.
+
+### PostgreSQL for writes, GeoJSON for current read layers
+
+Transactional reviewer work was the urgent integrity problem. Moving every GIS layer into PostGIS would be a larger data-platform change, so Sprint 5 stores writes safely while keeping the verified offline layer cache.
+
+### Screening language
+
+Available datasets cannot support an authoritative safety, compliance, or priority conclusion. The backend returns evidence, review attention, planning notes, and an explicit limitation instead.
+
+## Known architectural limits
+
+- Cold map loads still transfer the complete road network.
+- MapLibre still renders the complete selected layer collections.
+- Spatial queries use an in-memory prefilter and linear scan rather than PostGIS indexes.
+- The non-road Eugene layers are bounded demonstration extracts.
+- HTML report generation is synchronous and locally stored.
+- Rate limiting is process-local rather than gateway/distributed.
+- Authentication is a shared API-key foundation, not multi-user authorization.
+- Hosted monitoring, secret management, backups, and disaster recovery must be operated outside this repository.
+
+These limits and their launch implications are tracked in [Production remediation status](production-remediation-status.md).

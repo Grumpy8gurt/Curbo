@@ -1,6 +1,8 @@
 # API Contract
 
-This document reflects the verified CURBO Sprint 4 integration contract.
+This document reflects the verified CURBO Sprint 5 integration contract.
+
+The canonical data API prefix is `/api/v1`. The older `/api` paths remain temporarily available for earlier-client compatibility but are omitted from OpenAPI. When `AUTH_REQUIRED=true`, every data route requires `X-API-Key`. Health routes remain public for platform probes. Production annotation creates also require an `Idempotency-Key` header between 8 and 128 characters.
 
 ## Backend Routes
 
@@ -13,12 +15,14 @@ This document reflects the verified CURBO Sprint 4 integration contract.
 }
 ```
 
-### `GET /api/layers/roads`
+`GET /api/live` checks only the process. `GET /api/ready` and `/api/health` return HTTP 503 when a configured database is unavailable.
+
+### `GET /api/v1/layers/roads`
 
 - Response: GeoJSON `FeatureCollection`
 - Road ids use the normalized Eugene shape, for example `road_20000641`
 
-### `GET /api/layers/sidewalk-ramps`
+### `GET /api/v1/layers/sidewalk-ramps`
 
 - Response: GeoJSON `FeatureCollection`
 - Available normalized measurements use `width_feet`,
@@ -29,19 +33,19 @@ This document reflects the verified CURBO Sprint 4 integration contract.
   not publish a measurement. Nonpositive physical-width sentinels normalize to
   null; valid 0% slope measurements remain available.
 
-### `GET /api/layers/curb-ramps`
+### `GET /api/v1/layers/curb-ramps`
 
-- Compatibility alias for `/api/layers/sidewalk-ramps`
+- Compatibility alias for `/api/v1/layers/sidewalk-ramps`
 
-### `GET /api/layers/hydrants`
+### `GET /api/v1/layers/hydrants`
 
 - Response: GeoJSON `FeatureCollection`
 
-### `GET /api/layers/bike-lanes`
+### `GET /api/v1/layers/bike-lanes`
 
 - Response: GeoJSON `FeatureCollection` containing `LineString` or `MultiLineString` features
 
-### `GET /api/layers/annotations`
+### `GET /api/v1/layers/annotations`
 
 - Response: GeoJSON `FeatureCollection`
 
@@ -49,7 +53,7 @@ All infrastructure layer routes accept an optional
 `bbox=minLng,minLat,maxLng,maxLat` query. Bounds must be finite and ordered;
 points or line segments intersecting the box are returned.
 
-### `GET /api/annotations`
+### `GET /api/v1/annotations`
 
 - Purpose: return annotations in the same GeoJSON feature format the frontend stores in local state
 - Geometry: `Point` or `LineString`
@@ -63,14 +67,15 @@ points or line segments intersecting the box are returned.
   "features": [
     {
       "type": "Feature",
-      "id": "ann_001",
+      "id": "ann_9f347dc8088245d9b39aaf6984ddc874",
       "properties": {
-        "annotation_id": "ann_001",
+        "annotation_id": "ann_9f347dc8088245d9b39aaf6984ddc874",
         "annotation_type": "missing curb cut",
         "description": "Northwest corner slope feels absent during field review.",
         "status": "pending",
-        "source": "planner",
-        "created_at": "2026-07-05T15:00:00+00:00"
+        "source": "authenticated reviewer",
+        "created_at": "2026-07-05T15:00:00+00:00",
+        "version": 1
       },
       "geometry": {
         "type": "Point",
@@ -81,7 +86,7 @@ points or line segments intersecting the box are returned.
 }
 ```
 
-### `POST /api/annotations`
+### `POST /api/v1/annotations`
 
 - Request:
 
@@ -100,9 +105,11 @@ points or line segments intersecting the box are returned.
 ```
 
 - Point annotations may alternatively send `latitude` and `longitude` instead of `geometry`.
+- LineStrings are limited to 1,000 positions. The client cannot set `source`.
+- Retrying with the same `Idempotency-Key` returns the original annotation instead of creating a duplicate.
 - Response: one annotation `Feature`
 
-### `PATCH /api/annotations/{annotation_id}`
+### `PATCH /api/v1/annotations/{annotation_id}`
 
 - Purpose: persist a user-selected review state from the map popup
 - Supported states: `pending`, `reviewed`, `confirmed`, and `rejected`
@@ -110,11 +117,14 @@ points or line segments intersecting the box are returned.
 
 ```json
 {
-  "status": "reviewed"
+  "status": "reviewed",
+  "expectedVersion": 1
 }
 ```
 
-### `POST /api/corridors/analyze`
+Successful updates increment `version`. A stale `expectedVersion` or invalid lifecycle transition returns HTTP 409.
+
+### `POST /api/v1/corridors/analyze`
 
 - Request:
 
@@ -159,7 +169,7 @@ Concern fields and review attention exclude annotations whose status is
 Low/Medium/High review-attention heuristic is documented in
 `docs/planning-review-rationale.md`; it is not a safety or project score.
 
-### `POST /api/reports/corridor`
+### `POST /api/v1/reports/corridor`
 
 - Accepts `corridor_id`, `road_id`, or `roadId`
 - Request:
@@ -175,13 +185,15 @@ Low/Medium/High review-attention heuristic is documented in
 
 ```json
 {
-  "reportId": "rep_001",
+  "reportId": "rep_7e687908aef5498d85c0e403971ac5bb",
   "roadId": "road_20000641",
-  "downloadUrl": "/api/reports/rep_001/download",
-  "summary": "BROADWAY corridor report queued successfully. Export includes Eugene layer counts, planning notes, and annotation status."
+  "downloadUrl": "/api/v1/reports/rep_7e687908aef5498d85c0e403971ac5bb/download",
+  "summary": "BROADWAY corridor report generated successfully. Export includes Eugene layer counts, planning notes, and annotation status."
 }
 ```
 
-### `GET /api/reports/{reportId}/download`
+Only `html` is accepted. Report identifiers are collision-resistant and database-backed report downloads survive application restarts.
+
+### `GET /api/v1/reports/{reportId}/download`
 
 - Purpose: download the generated HTML report
