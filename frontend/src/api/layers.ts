@@ -25,7 +25,9 @@ export async function getRoads(): Promise<RoadFeatureCollection> {
   return fetchJsonWithFallback(
     "/api/v1/layers/roads",
     getFallbackRoads(),
-    undefined,
+    // Chrome can revalidate this large response with a bodyless 304 response.
+    // Always request a complete payload so a page refresh cannot empty the map.
+    { cache: "no-store" },
     isRoadFeatureCollection
   );
 }

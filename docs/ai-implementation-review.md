@@ -48,6 +48,7 @@ Tests were chosen around the failures most likely to lose work, mislead users, o
 - report restart and retention tests protect durable, bounded artifacts;
 - health failure tests protect deployment routing decisions;
 - malformed-response and unreachable-API tests protect honest frontend state; and
+- the Chrome roads-cache regression test protects normal page refreshes from losing their map data; and
 - exact spatial tests protect corridor counts from rectangle and segment edge cases.
 
 These tests focus on externally visible behavior instead of checking private implementation details unless the geometry helper itself is the behavior under review.
@@ -127,9 +128,10 @@ Important maintainability improvements include:
 4. one frontend request function for timeout, headers, normalized errors, and runtime validation;
 5. one road index and ETag computed at startup instead of repeated full scans/hashes;
 6. isolated pure spatial and ramp-review helpers; and
-7. a single `verify_sprint5.sh` entry point for the final quality baseline.
+7. independent frontend layer loading so one endpoint cannot blank successful map layers; and
+8. a single `verify_sprint5.sh` entry point for the final quality baseline.
 
-Expected behavior remained intact through 45 backend tests, 15 frontend tests, production builds, dependency audits, data validation, migration round trips, Compose checks, and live container smoke tests.
+Expected behavior remained intact through 45 backend tests, 16 frontend tests, production builds, dependency audits, data validation, migration round trips, Compose checks, and live container smoke tests.
 
 ## Repository evidence
 

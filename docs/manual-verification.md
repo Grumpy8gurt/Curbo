@@ -4,7 +4,7 @@ This document separates checks performed against a running application from repe
 
 ## Final verification baseline
 
-**Final verification dates:** August 15–16, 2026
+**Final verification dates:** August 15–17, 2026
 
 **Final branch:** `sprint-5-final`
 **Environment:** macOS, Docker Desktop, Python 3.13 virtual environment, Node 22 toolchain
@@ -26,6 +26,7 @@ The final frontend and backend images were built and started together with Docke
 | Unsupported report | The API does not say it created a PDF when it only creates HTML. | `format: "pdf"` returned HTTP 422. | Pass |
 | Browser security headers | Static responses include CSP, framing, MIME, referrer, and permissions protections. | All configured headers were present. | Pass |
 | Large road response | Roads support caching and compression. | Response contained an ETag, cache policy, `Vary`, and gzip encoding. | Pass |
+| Chrome refresh after cache fix | A normal refresh loads the current frontend and complete layer responses without requiring a hard refresh. | Chrome loaded the new application bundles; all five layer requests returned HTTP 200, including the compressed roads response. | Pass |
 | Shutdown | Normal shutdown removes the temporary service containers without deleting named data volumes. | `docker compose down` completed successfully. | Pass |
 
 Representative commands:
@@ -67,7 +68,7 @@ Run the complete final suite from the repository root:
 Final results:
 
 - **45 backend tests passed**.
-- **15 frontend tests passed** in 7 test files.
+- **16 frontend tests passed** in 8 test files.
 - Python dependency consistency passed.
 - Python production dependency audit reported no known vulnerabilities.
 - Frontend TypeScript and production build passed.
@@ -102,6 +103,10 @@ During final review, the segment-intersection helper was found to return true fo
 ### Earlier false-saved frontend behavior
 
 The audit showed that network failure could trigger browser-memory fallback and still display “saved.” Sprint 5 made mock mode explicit and removed automatic fallback from real requests. Automated API-client tests would now fail if an unreachable API again produced a successful mutation result.
+
+### Chrome refresh could leave the map empty
+
+Chrome revalidated the large roads response and received HTTP 304 with no response body. The frontend loaded all layers with one `Promise.all`, so a failed roads request prevented every successful layer from reaching the map. The roads request now bypasses the browser cache so it always receives a complete payload, and layer results are applied independently with `Promise.allSettled`. A regression test checks the cache setting, while a live Chrome refresh confirmed that the current bundles and every layer response loaded with HTTP 200.
 
 ## Final repository checklist
 
