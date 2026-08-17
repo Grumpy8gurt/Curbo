@@ -92,7 +92,7 @@ cd frontend
 npm test -- src/api/annotations.test.ts
 ```
 
-The final verified baseline is 45 backend tests and 15 frontend tests. See [Manual verification](docs/manual-verification.md) for the recorded evidence.
+The final verified baseline is 45 backend tests and 16 frontend tests. See [Manual verification](docs/manual-verification.md) for the recorded evidence.
 
 ## Main workflow
 

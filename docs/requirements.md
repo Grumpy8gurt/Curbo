@@ -101,7 +101,7 @@ The repository provides foundations but does not satisfy these external launch r
 The final repository baseline is:
 
 - 45 passing backend tests;
-- 15 passing frontend tests;
+- 16 passing frontend tests;
 - passing TypeScript and production frontend build;
 - passing JavaScript bundle budgets;
 - zero known npm or Python production dependency vulnerabilities at final verification;

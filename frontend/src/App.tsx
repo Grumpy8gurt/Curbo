@@ -91,9 +91,8 @@ export default function App() {
   const corridorRequestIdRef = useRef(0);
   const reportRequestIdRef = useRef(0);
 
-  // Load all five layers in parallel on mount.  Individual layer failures are
-  // caught by fetchJsonWithFallback in the API client, so only a total network
-  // failure (TypeError) reaches this catch block.
+  // Load all five layers in parallel on mount. Each successful result is
+  // applied independently so one unavailable endpoint cannot blank the map.
   useEffect(() => {
     async function loadData() {
       try {
@@ -103,7 +102,7 @@ export default function App() {
           nextHydrants,
           nextAnnotations,
           nextBikeLanes
-        ] = await Promise.all([
+        ] = await Promise.allSettled([
           getRoads(),
           getSidewalkRamps(),
           getHydrants(),
@@ -111,24 +110,44 @@ export default function App() {
           getBikeLanes()
         ]);
 
-        setRoads(nextRoads);
-        setSidewalkRamps(nextSidewalkRamps);
-        setHydrants(nextHydrants);
-        setAnnotations(nextAnnotations);
-        setBikeLanes(nextBikeLanes);
-        const degradedLayers = [
+        if (nextRoads.status === "fulfilled") setRoads(nextRoads.value);
+        if (nextSidewalkRamps.status === "fulfilled") {
+          setSidewalkRamps(nextSidewalkRamps.value);
+        }
+        if (nextHydrants.status === "fulfilled") setHydrants(nextHydrants.value);
+        if (nextAnnotations.status === "fulfilled") {
+          setAnnotations(nextAnnotations.value);
+        }
+        if (nextBikeLanes.status === "fulfilled") setBikeLanes(nextBikeLanes.value);
+
+        const layerResults = [
+          nextRoads,
+          nextSidewalkRamps,
+          nextHydrants,
+          nextAnnotations,
+          nextBikeLanes
+        ];
+        const hasUnavailableLayer = layerResults.some(
+          (result) => result.status === "rejected"
+        );
+        const hasDevelopmentData = [
           nextRoads,
           nextSidewalkRamps,
           nextHydrants,
           nextBikeLanes
-        ].filter((layer) => layer.metadata?.status !== "cached-eugene");
+        ].some(
+          (result) =>
+            result.status === "fulfilled" &&
+            result.value.metadata?.status !== "cached-eugene"
+        );
+
         setActivityMessage(
-          USE_MOCK_API || degradedLayers.length > 0
+          hasUnavailableLayer
+            ? "Some Eugene layers are unavailable. Available map information is shown."
+            : USE_MOCK_API || hasDevelopmentData
             ? "Development data mode: sample or incomplete information is shown and must not be used as production evidence."
             : "Eugene infrastructure layers loaded. Ready for corridor review."
         );
-      } catch {
-        setActivityMessage("Some Eugene layers are unavailable. Available map information is shown.");
       } finally {
         setLoading(false);
       }

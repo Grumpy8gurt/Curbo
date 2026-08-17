@@ -63,7 +63,7 @@ CURBO is substantially safer and more reliable than the audited version, but it 
 The following checks passed on August 15, 2026:
 
 - Backend: **45 tests passed**.
-- Frontend: **15 tests passed** across 7 test files.
+- Frontend: **16 tests passed** across 8 test files.
 - Production frontend TypeScript/build: passed.
 - JavaScript bundle budgets: passed; initial application chunk is about 174 KB and the lazy map chunk is about 1,037 KB before gzip.
 - npm audit: **0 known vulnerabilities**.
